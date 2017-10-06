@@ -129,9 +129,9 @@ local function exec_SHARKLE(_SHARKLE)
 				local _FILE = fs.open(_FILEPATH,"r")
 				local _CONTENT = _FILE.readAll()
 				_FILE.close()
-				local _bError,_nError_CODE = pcall(exec_SLS,_CONTENT)
+				local _bError,_sError = pcall(exec_SLS,_CONTENT)
 				if _bError then
-					nError_CODE = tonumber(_nError_CODE)
+					f_ERROR(_sError)
 				else
 					return true
 				end
