@@ -31,13 +31,13 @@
 			- 5: Host denied certificate
 --]]
 
-local SHARKLE = ""
+local SHARKLE = "local://test/"
 
 local SHARK_PATH = "/sharkfs/"
 local SHARK_PATH_SITES = SHARK_PATH.."sites/"
-local SHARK_PATH_HISTORY = SHARK_PATH..".history"
-local SHARK_PATH_SETTINGS = SHARK_PATH..".settings"
-local SHARK_PATH_CERTS = SHARK_PATH..".certs"
+local SHARK_PATH_HISTORY = SHARK_PATH.."history"
+local SHARK_PATH_SETTINGS = SHARK_PATH.."settings"
+local SHARK_PATH_CERTS = SHARK_PATH.."certs"
 
 local COMMANDS = {
 	
@@ -74,20 +74,32 @@ end
 -- Returns: ID, DOMAIN, EXTENSION, PATH
 local function parse_SHARKLE(_SHARKLE)
 	-- ID
-	local nID_END = _SHARKLE:find("://",1)
+	local nID_START,nID_END = _SHARKLE:find("://",1)
 	local sSharkle_ID = _SHARKLE:sub(1,nID_START-1)
 	-- Domain
 	local nDomain_END = _SHARKLE:find("/",nID_END+1)
-	local sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END-1)
+	local sSharkle_DOMAIN = ""
+	if not nDomain_END then
+		nDomain_END = #_SHARKLE
+		sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END)
+	else
+		sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END-1)
+	end
 	-- Path
-	local sSharkle_PATH = _SHARKLE:sub(nDomain_END+1)
-	-- Extension
-	local nExtension_START = _SHARKLE:find("%.",nDomain_END+1)
+	local sSharkle_PATH = ""
 	local sSharkle_EXTENSION = ""
-	if not nExtension_START then
+	if #_SHARKLE == nDomain_END then
+		sSharkle_PATH = "index"
 		sSharkle_EXTENSION = "sls"
 	else
-		sSharkle_EXTENSION = _SHARKLE:sub(nExtension_START+1)
+		sSharkle_PATH = _SHARKLE:sub(nDomain_END+1)
+		-- Extension
+		local nExtension_START = _SHARKLE:find("%.",nDomain_END+1)
+		if not nExtension_START then
+			sSharkle_EXTENSION = "sls"
+		else
+			sSharkle_EXTENSION = _SHARKLE:sub(nExtension_START+1)
+		end
 	end
 	return sSharkle_ID,sSharkle_DOMAIN,sSharkle_EXTENSION,sSharkle_PATH
 end
@@ -111,7 +123,7 @@ local function exec_SHARKLE(_SHARKLE)
 	local _ID,_DOMAIN,_EXT,_PATH = parse_SHARKLE(_SHARKLE)
 	local _ME,_ID = resolve_ID(_ID)
 	if _ME then
-		if check_DOMAIN(_DOMAIN) then
+		if fs.exists(SHARK_PATH_SITES.._DOMAIN) and fs.isDir(SHARK_PATH_SITES.._DOMAIN) then
 			_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
 			if fs.exists(_FILEPATH) then
 				local _FILE = fs.open(_FILEPATH,"r")
@@ -130,13 +142,17 @@ local function exec_SHARKLE(_SHARKLE)
 			nError_CODE = 1
 		end
 	end
+	-- Redirect to Error Code page
 	if nError_CODE then
 		if nError_CODE == 1 then
-			exec_SHARKLE("local://not-found")
+			SHARKLE = "local://not-found"
 		elseif nError_CODE == 2 then
-			exec_SHARKLE("local://not-found")
+			SHARKLE = "local://not-found"
 		elseif nError_CODE == 3 then
-			exec_SHARKLE("local://timeout")
+			SHARKLE = "local://timeout"
 		end
+		exec_SHARKLE(SHARKLE)
 	end
 end
+
+print(parse_SHARKLE(SHARKLE))
