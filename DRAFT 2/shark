@@ -1,0 +1,142 @@
+--[[
+
+	Shark
+	Draft 2
+	
+	PLAN:
+		- UI
+			- Sharkle bar
+			- Menu (History, Settings, About, Exit)
+		- Language
+			- Shark Language Sheet (.sls)
+		- Local Storage
+			- Shark Pages
+				- History
+				- Settings
+				- About
+				- Error Codes (Not Found, Timeout etc.)
+			- DNS
+				- Local redirecting and resolving
+			- History
+				- History of your visits
+			- Sites (hosting)
+				- Host a site
+			- Certificates
+				- Allows you to access certain private sites
+		- Error Codes
+			- 1: Domain not found
+			- 2: Page not found
+			- 3: Host didn't respond (doesn't exist or Shark not running)
+			- 4: Host requires certificate
+			- 5: Host denied certificate
+--]]
+
+local SHARKLE = ""
+
+local SHARK_PATH = "/sharkfs/"
+local SHARK_PATH_SITES = SHARK_PATH.."sites/"
+local SHARK_PATH_HISTORY = SHARK_PATH..".history"
+local SHARK_PATH_SETTINGS = SHARK_PATH..".settings"
+local SHARK_PATH_CERTS = SHARK_PATH..".certs"
+
+local COMMANDS = {
+	
+}
+
+-- Print error
+local function f_ERROR(_STRING)
+	term.setBackgroundColor(colors.black)
+	term.setTextColor(colors.red)
+	error("ERROR: ".._STRING,0)
+end
+
+-- Resolve ID
+-- Returns: Self (True/False), ID (Computer ID)
+local function resolve_ID(_ID)
+	local _SELF = false
+	if not tonumber(_ID) then
+		if _ID == "local" then
+			_SELF = true
+			_ID = os.getComputerID()
+		elseif _ID == "localhost" then
+			_SELF = true
+			_ID = os.getComputerID()
+		end
+	else
+		if tonumber(_ID) == os.getComputerID() then
+			_SELF = true
+		end
+	end
+	return _SELF,_ID
+end
+
+-- Parse Sharkle
+-- Returns: ID, DOMAIN, EXTENSION, PATH
+local function parse_SHARKLE(_SHARKLE)
+	-- ID
+	local nID_END = _SHARKLE:find("://",1)
+	local sSharkle_ID = _SHARKLE:sub(1,nID_START-1)
+	-- Domain
+	local nDomain_END = _SHARKLE:find("/",nID_END+1)
+	local sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END-1)
+	-- Path
+	local sSharkle_PATH = _SHARKLE:sub(nDomain_END+1)
+	-- Extension
+	local nExtension_START = _SHARKLE:find("%.",nDomain_END+1)
+	local sSharkle_EXTENSION = ""
+	if not nExtension_START then
+		sSharkle_EXTENSION = "sls"
+	else
+		sSharkle_EXTENSION = _SHARKLE:sub(nExtension_START+1)
+	end
+	return sSharkle_ID,sSharkle_DOMAIN,sSharkle_EXTENSION,sSharkle_PATH
+end
+
+-- Parse and execute an SLL (Shark Language Line)
+-- Returns: SUCCESS (True/False)
+local function exec_LINE(_LINE)
+	
+end
+
+-- Parse and execute an SLS (Shark Language Sheet)
+-- Returns: SUCCESS (True/False)
+local function exec_SLS(_SLS)
+	
+end
+
+-- Execute Sharkle
+-- Returns: SUCCESS (True/False)
+local function exec_SHARKLE(_SHARKLE)
+	local nError_CODE = nil
+	local _ID,_DOMAIN,_EXT,_PATH = parse_SHARKLE(_SHARKLE)
+	local _ME,_ID = resolve_ID(_ID)
+	if _ME then
+		if check_DOMAIN(_DOMAIN) then
+			_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
+			if fs.exists(_FILEPATH) then
+				local _FILE = fs.open(_FILEPATH,"r")
+				local _CONTENT = _FILE.readAll()
+				_FILE.close()
+				local _bError,_nError_CODE = pcall(exec_SLS,_CONTENT)
+				if _bError then
+					nError_CODE = tonumber(_nError_CODE)
+				else
+					return true
+				end
+			else
+				nError_CODE = 2
+			end
+		else
+			nError_CODE = 1
+		end
+	end
+	if nError_CODE then
+		if nError_CODE == 1 then
+			exec_SHARKLE("local://not-found")
+		elseif nError_CODE == 2 then
+			exec_SHARKLE("local://not-found")
+		elseif nError_CODE == 3 then
+			exec_SHARKLE("local://timeout")
+		end
+	end
+end
