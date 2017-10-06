@@ -1,0 +1,9 @@
+<color['blue','lightBlue']>
+  <print['3','3']>
+    OI, RED!
+    <color['red','orange']>
+      What?
+    </color>
+    Nothing. Hehe.
+  </print>
+</color>
