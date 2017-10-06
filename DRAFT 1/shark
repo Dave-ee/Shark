@@ -1,0 +1,184 @@
+--[[
+
+	Shark
+	Draft 1
+
+	PLAN:
+		- UI
+			- Sharkle bar (equivalent of URL bar)
+			- Menu (History, Settings, About, Exit)
+		- Languages
+			- Shark Language Sheet (.sls)
+		- Domains
+			- Example domain: '1://example.ss/' (refers to computer ID 1's 'example.ss' domain)
+			- Sites
+				- Pages
+					- Example link: '1://example.ss/not-found' (refers to computer ID 1's '/shark/sites/example/pages/not-found.sls' page)
+					- Defaults for browser:
+						- 'settings': Settings page for Shark
+						- 'about': About page for Shark
+						- 'home': Home page for Shark
+						- 'history': Local history
+					- Defaults per domain:
+						- 'index.sl': Index page
+						- 'not-found.sl': Not Found page
+					- Sourced from FS (persistence across reboots)
+		- DNS
+			- Local DNS for quicker browsing/navigation
+		- History
+			- Local storage of history
+		- Certificates
+			- Only allows certain users to view a site (each have their own certificate, or just 1 with limited access?)
+--]]
+
+local s_SHARKLE = "local://home"
+
+local t_COMMANDS = {
+	["color"] = {
+		FUNCTION = function(...)
+			local t = ...
+			OLD_COLOUR_T = term.getTextColor()
+			OLD_COLOUR_B = term.getBackgroundColor()
+			if #t > 1 then
+				term.setTextColor(colors[t[1]])
+				term.setBackgroundColor(colors[t[2]])
+			else
+				term.setTextColor(colors[t[1]])
+			end
+		end,
+		INV_FUNCTION = function()
+			term.setTextColor(OLD_COLOUR_T)
+			term.setBackgroundColor(OLD_COLOUR_B)
+		end
+	},
+	["print"] = {
+		FUNCTION = function(...)
+			b_PRINTING = true
+			term.setCursorPos(unpack(...))
+			PRINT_X = term.getCursorPos()
+		end,
+		INV_FUNCTION = function()
+			b_PRINTING = false
+		end
+	},
+	["write"] = {
+		FUNCTION = function(...)
+			term.setCursorPos(unpack(...))
+			b_WRITING = true
+		end,
+		INV_FUNCTION = function()
+			b_WRITING = false
+		end
+	},
+	["cursor"] = {
+		FUNCTION = function(...)
+			OLD_X, OLD_Y = term.getCursorPos()
+			term.setCursorPos(unpack(...))
+		end,
+		INV_FUNCTION = function()
+			term.setCursorPos(OLD_X,OLD_Y)
+		end
+	}
+}
+
+local function f_ERROR(_STRING)
+	error("ERROR: ".._STRING,0)
+end
+
+-- Parses a sharkle
+-- Assumes value of _SHARKLE looks like: 'local://example.ss/index'
+local function f_PARSE_SHARKLE(_SHARKLE)
+	-- Calculate the tag
+	local n_TAG_START,n_TAG_END = _SHARKLE:find("://",1)
+	local s_SHARKLE_TAG = _SHARKLE:sub(1,n_TAG_START-1)
+	-- Calculate the domain
+	local n_DOMAIN_END = _SHARKLE:find("/",n_TAG_END+1)
+	local s_SHARKLE_DOMAIN = _SHARKLE:sub(n_TAG_END+1,n_DOMAIN_END-1)
+	-- Calculate the path name
+	local s_SHARKLE_PATH = _SHARKLE:sub(n_DOMAIN_END+1)
+	-- Calculate the extension (if there isn't one assume it's .sls)
+	local n_EXTENSION_START = _SHARKLE:find("%.",n_DOMAIN_END+1)
+	local s_SHARKLE_EXTENSION = ""
+	if not n_EXTENSION_START then
+		s_SHARKLE_EXTENSION = "sls"
+	else
+		s_SHARKLE_EXTENSION = _SHARKLE:sub(n_EXTENSION_START+1)
+	end
+	return s_SHARKLE_TAG,s_SHARKLE_DOMAIN,s_SHARKLE_EXTENSION,s_SHARKLE_PATH
+end
+
+-- Parses and executes a Shark Language string (single line)
+local function f_EXECUTE_LINE(_LINE)
+	local s_COMMAND = ""
+	local n_ARG_START = 0
+	local n_ARG_END = 0
+	local t_ARGS = {}
+	-- Detect if the line is actual code or just some text
+	if _LINE:sub(1,1) == "<" then
+		-- Detect if the line is an invert tag
+		if _LINE:sub(2,2) == "/" then
+			s_COMMAND = _LINE:sub(3,_LINE:find(">")-1)
+			if t_COMMANDS[s_COMMAND] then
+				t_COMMANDS[s_COMMAND].INV_FUNCTION()
+			else
+				f_ERROR("'"..s_COMMAND.."' command doesn't exist.")
+			end
+		else
+			n_ARG_START = _LINE:find("%[")
+			if n_ARG_START then
+				n_ARG_END = _LINE:find("%]")
+				if n_ARG_END then
+					local _ARG = _LINE:match("'(.-)'")
+					table.insert(t_ARGS,_ARG)
+					local n_COMMA = 0
+					n_COMMA = select(2,_LINE:gsub(",",","))
+					if n_COMMA > 0 then
+						local _POS = 0
+						_ARG = ""
+						for i=1,n_COMMA do
+							_POS = _LINE:find(",",_POS+1)
+							_ARG = _LINE:match("'(.-)'",_POS)
+							table.insert(t_ARGS,_ARG)
+						end
+					end
+					s_COMMAND = _LINE:sub(2,n_ARG_START-1)
+				else
+					f_ERROR("No ending ']' for arguments.")
+				end
+			else
+				s_COMMAND = _LINE:sub(2,_LINE:find(">"))
+			end
+			if t_COMMANDS[s_COMMAND] then
+				t_COMMANDS[s_COMMAND].FUNCTION(t_ARGS)
+			else
+				f_ERROR("'"..s_COMMAND.."' command doesn't exist.")
+			end
+		end
+	else
+		if b_PRINTING then
+			local _,Y = term.getCursorPos()
+			term.setCursorPos(PRINT_X,Y)
+			print(_LINE)
+		elseif b_WRITING then  
+			write(_LINE)
+		end
+	end
+end
+
+-- Parses and executes a Shark Language Sheet
+local function f_EXECUTE_SLS(_SHEET)
+	local b_PRINTING = false
+	local b_WRITING = false
+	local OLD_COLOUR = nil
+	local OLD_X = 0
+	local OLD_Y = 0
+	local PRINT_X = 0
+	for _LINE in _SHEET:gmatch("([^\n]*)\n?") do
+		f_EXECUTE_LINE(_LINE:match("^%s*(.-)%s*$"))
+	end
+end
+
+local file = fs.open("/sls","r")
+local contents = file.readAll()
+file.close()
+f_EXECUTE_SLS(contents)
