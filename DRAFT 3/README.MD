@@ -1,7 +1,7 @@
 DRAFT 3
 
 Planned: 
-- SLS commands redo
+- SLS commands redo (*IN PROGRESS*)
   - Add a continuing function for each command
     - Called whenever there is text by itself after a command. E.g:
     ```
@@ -12,7 +12,7 @@ Planned:
     - Also means users can create their own commands easily
   - Add a 'FIELD' entry for each button/checkbox/link so that the event handler can handle the mouse clicks on them
     - Requires their X, Y, W, H
-- Additions to SLS commands
+- Additions to SLS commands (*IN PROGRESS*)
   - Button (drawing done, awaiting event handler)
     - Arguments: X, Y
   - Checkbox
