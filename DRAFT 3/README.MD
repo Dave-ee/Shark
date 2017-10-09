@@ -7,8 +7,6 @@ Planned:
     - Arguments: X, Y
   - Checkbox
     - Arguments: X, Y, State (default: false)
-  - Link
-    - Arguments: Sharkle
   - Image
     - Arguments: X, Y, Image Sharkle
 - (Maybe) History
