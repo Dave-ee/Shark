@@ -2,6 +2,14 @@ DRAFT 3
 
 Planned: 
 - Network Hosting
-- Additions to SLS commands (button, link, header)
+- Additions to SLS commands
+  - Button (drawing done, awaiting event handler)
+    - Arguments: X, Y
+  - Checkbox
+    - Arguments: X, Y, State (default: false)
+  - Link
+    - Arguments: Sharkle
+  - Image
+    - Arguments: X, Y, Image Sharkle
 - (Maybe) History
 - (Maybe) Shark Pages (Home/History/Settings/About)
