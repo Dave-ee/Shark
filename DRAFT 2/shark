@@ -33,29 +33,7 @@
 			- 6: DNS couldn't resolve hostname
 --]]
 
--- TEMP FS CREATION --
-if not fs.exists("/sharkfs") then
-	fs.makeDir("/sharkfs")
-	fs.makeDir("/sharkfs/sites")
-	fs.makeDir("/sharkfs/sites/test") -- domain 'test'
-	fs.makeDir("/sharkfs/sites/test/pages") -- pages of 'test'
-	local _f = fs.open("/sharkfs/sites/test/pages/index.sls","w")
-	local _t = {
-		"<color[blue]>",
-		"	<print[5,5]>",
-		"		Hey. This is the home page of the 'test' site!",
-		"	</print>",
-		"</color>"
-	}
-	for i=1,#_t do
-		_f.writeLine(_t[i])
-	end
-	_f.close()
-	error("Created 'sharkfs' directory and setup test environment. Please re-run Shark.",0)
-end
--- END TEMP FS CREATION --
-
-local SHARKLE = "me://test/"
+local SHARKLE = "local://test/"
 
 local SHARK_PATH = "/sharkfs/"
 local SHARK_PATH_SITES = SHARK_PATH.."sites/"
