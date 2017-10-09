@@ -42,14 +42,46 @@ local SHARK_PATH_SETTINGS = SHARK_PATH.."settings"
 local SHARK_PATH_CERTS = SHARK_PATH.."certs"
 local SHARK_PATH_DNS = SHARK_PATH.."dns"
 
-local FIELDS = {}
+local GLOBALS = {
+	["color"] = {
+		SWITCH = false,
+		OLD_TC = nil,
+		OLD_BC = nil
+	},
+	["cursor"] = {
+		SWITCH = false,
+		X = 0,
+		Y = 0
+	},
+	["print"] = {
+		SWITCH = false,
+		X = 0,
+		Y = 0
+	},
+	["write"] = {
+		SWITCH = false,
+		X = 0,
+		Y = 0
+	},
+	["button"] = {
+		SWITCH = false,
+		OLD_X = 0,
+		OLD_Y = 0,
+		X = 0,
+		Y = 0,
+		W = 0,
+		H = 0,
+		LINK = "",
+		COUNT = 1
+	}
+}
 
 local COMMANDS = {
 	["color"] = {
-		FUNCTION = function(...)
-			local t = ...
-			OLD_COLOUR_T = term.getTextColor()
-			OLD_COLOUR_B = term.getBackgroundColor()
+		FUNCTION = function(t)
+			GLOBALS["color"].SWITCH = true
+			GLOBALS["color"].OLD_TC = term.getTextColor()
+			GLOBALS["color"].OLD_BC = term.getBackgroundColor()
 			if #t > 1 then
 				term.setTextColor(colors[t[1]])
 				term.setBackgroundColor(colors[t[2]])
@@ -57,288 +89,131 @@ local COMMANDS = {
 				term.setTextColor(colors[t[1]])
 			end
 		end,
-		INV_FUNCTION = function()
-			term.setTextColor(OLD_COLOUR_T)
-			term.setBackgroundColor(OLD_COLOUR_B)
-		end
-	},
-	["print"] = {
-		FUNCTION = function(t)
-			local x,y = unpack(t)
-			term.setCursorPos(tonumber(x),tonumber(y))
-			PRINT_X = term.getCursorPos()
-			b_PRINTING = true
+		CON_FUNCTION = function()
+			return nil
 		end,
 		INV_FUNCTION = function()
-			b_PRINTING = false
-		end
-	},
-	["write"] = {
-		FUNCTION = function(t)
-			local x,y = unpack(t)
-			term.setCursorPos(tonumber(x),tonumber(y))
-			b_WRITING = true
-		end,
-		INV_FUNCTION = function()
-			b_WRITING = false
+			GLOBALS["color"].SWITCH = false
+			term.setTextColor(GLOBALS["color"].OLD_TC)
+			term.setBackgroundColor(GLOBALS["color"].OLD_BC)
+			GLOBALS["color"].OLD_TC = nil
+			GLOBALS["color"].OLD_BC = nil
 		end
 	},
 	["cursor"] = {
 		FUNCTION = function(t)
-			local x,y = unpack(t)
-			OLD_X, OLD_Y = term.getCursorPos()
-			term.setCursorPos(tonumber(x),tonumber(y))
+			GLOBALS["cursor"].SWITCH = true
+			local _X,_Y = unpack(t)
+			GLOBALS["cursor"].OLD_X,GLOBALS["cursor"].OLD_Y = term.getCursorPos()
+			term.setCursorPos(tonumber(_X),tonumber(_Y))
+		end,
+		CON_FUNCTION = function()
+			return nil
 		end,
 		INV_FUNCTION = function()
-			term.setCursorPos(OLD_X,OLD_Y)
+			GLOBALS["color"].SWITCH = false
+			term.setCursorPos(GLOBALS["cursor"].OLD_X,GLOBALS["cursor"].OLD_Y)
+			GLOBALS["color"].OLD_X = 0
+			GLOBALS["color"].OLD_Y = 0
+		end
+	},
+	["print"] = {
+		FUNCTION = function(t)
+			GLOBALS["print"].SWITCH = true
+			local _X,_Y = unpack(t)
+			term.setCursorPos(tonumber(_X),tonumber(_Y))
+			GLOBALS["print"].X,GLOBALS["print"].Y = term.getCursorPos()
+		end,
+		CON_FUNCTION = function(s)
+			local _X,_Y = term.getCursorPos()
+			term.setCursorPos(GLOBALS["print"].X,_Y)
+			print(s)
+			return true
+		end,
+		INV_FUNCTION = function()
+			GLOBALS["print"].SWITCH = false
+			GLOBALS["print"].X = 0
+			GLOBALS{"print"].Y = 0
+		end
+	},
+	["write"] = {
+		FUNCTION = function(t)
+			GLOBALS["write"].SWITCH = true
+			local _X,_Y = unpack(t)
+			term.setCursorPos(tonumber(_X),tonumber(_Y))
+			GLOBALS["write"].X,GLOBALS["write"].Y = term.getCursorPos()
+		end,
+		CON_FUNCTION = function(s)
+			write(s)
+			return true
+		end,
+		INV_FUNCTION = function()
+			GLOBALS["write"].SWITCH = false
+			GLOBALS["write"].X = 0
+			GLOBALS["write"].Y = 0
 		end
 	},
 	["button"] = {
 		FUNCTION = function(t)
-			b_BUTTON = true
+			GLOBALS["button"].SWITCH = true,
 			local _X,_Y,_W,_H,_LINK = unpack(t)
-			BUTTON_WC = 1
-			BUTTON_X = tonumber(_X)
-			BUTTON_Y = tonumber(_Y)
+			GLOBALS["button"].X = tonumber(_X)
+			GLOBALS["button"].Y = tonumber(_Y)
 			if tonumber(_W) then
-				BUTTON_W = tonumber(_W)
-				BUTTON_H = tonumber(_H)
-				BUTTON_LINK = _LINK
-				paintutils.drawFilledBox(BUTTON_X,BUTTON_Y,BUTTON_X+BUTTON_W-1,BUTTON_Y+BUTTON_H-1,term.getBackgroundColor())
+				GLOBALS["button"].W = tonumber(_W)
+				GLOBALS["button"].H = tonumber(_H)
+				GLOBALS{"button"].LINK = _LINK
+				paintutils.drawFilledBox(GLOBALS["button"].X,GLOBALS["button"].Y,GLOBALS["button"].X+GLOBALS["button"].W-1,,GLOBALS["button"].Y+,GLOBALS["button"].H-1,term.getBackgroundColor())
 			else
-				BUTTON_W = 0
-				BUTTON_H = 0
-				BUTTON_LINK = _W
+				GLOBALS["button"].W = 0
+				GLOBALS["button"].H = 0
+				GLOBALS["button"].LINK = _W
 			end
-			OLD_X,OLD_Y = term.getCursorPos()
+			GLOBALS["button"].OLD_X,GLOBALS["button"].OLD_Y = term.getCursorPos()
 		end,
 		CON_FUNCTION = function(s)
-			if BUTTON_W == 0 then
-				BUTTON_W = #s+2
-				term.setCursorPos(BUTTON_X,BUTTON_Y)
-				print(string.rep(" ",BUTTON_W))
-				term.setCursorPos(BUTTON_X,BUTTON_Y+1)
+			local _X,_Y, GLOBALS["button"].X,GLOBALS["button"].Y
+			if GLOBALS["button"].W == 0 then
+				GLOBALS["button"].W = #s+2
+				local _W = GLOBALS["button"].W
+				term.setCursorPos(_X,_Y)
+				print(string.rep(" ",_W))
+				term.setCursorPos(_X,_Y+1)
 				print(" "..s.." ")
-				term.setCursorPos(BUTTON_X,BUTTON_Y+2)
-				print(string.rep(" ",BUTTON_W))
+				term.setCursorPos(_X,_Y+2)
+				print(string.rep(" ",_W))
 			else
-				term.setCursorPos(BUTTON_X+1,BUTTON_Y+BUTTON_WC)
+				term.setCursorPos(_X+1,_Y+GLOBALS["button"].COUNT)
 				print(s)
-				BUTTON_WC = BUTTON_WC + 1
+				GLOBALS["button"].COUNT = GLOBALS["button"].COUNT + 1
 			end
 		end,
 		INV_FUNCTION = function()
-			local _t = {
-				x = BUTTON_X,
-				y = BUTTON_Y,
-				w = BUTTON_W,
-				h = 3,
-				LINK = BUTTON_LINK
-			}
-			table.insert(FIELDS,_t)
-			b_BUTTON = false
-			BUTTON_X = 0
-			BUTTON_Y = 0
-			BUTTON_W = 0
-			term.setCursorPos(OLD_X,OLD_Y)
+			table.insert(FIELDS,GLOBALS["button"])
+			GLOBALS["button"].SWITCH = false
+			GLOBALS["button"].OLD_X = 0,
+			GLOBALS["button"].OLD_Y = 0,
+			GLOBALS["button"].X = 0,
+			GLOBALS["button"].Y = 0,
+			GLOBALS["button"].W = 0,
+			GLOBALS["button"].H = 0,
+			GLOBALS["button"].LINK = "",
+			GLOBALS["button"].COUNT = 1
 		end
 	}
 }
 
--- Print error
-local function f_ERROR(_STRING,_LINE)
+-- Error out
+local function f_ERROR(_S,_L)
 	term.setBackgroundColor(colors.black)
 	term.setTextColor(colors.red)
-	if _LINE then
-		error("ERROR on line ".._LINE..": ".._STRING,0)
+	if _L then
+		printError("ERROR ON LINE ".._L..":")
+		printError(_S)
+		error("",0)
 	else
-		error("ERROR: ".._STRING,0)
+		printError("ERROR:")
+		printError(_S)
+		error("",0)
 	end
 end
-
--- Resolve ID
--- Returns: Self (True/False), ID (Computer ID)
--- Called by: exec_SHARKLE
-local function resolve_ID(_ID)
-	local _SELF = false
-	if not tonumber(_ID) then
-		if _ID == "local" then
-			_SELF = true
-			_ID = os.getComputerID()
-		elseif _ID == "localhost" then
-			_SELF = true
-			_ID = os.getComputerID()
-		else
-			local _f = fs.open(SHARK_PATH_DNS,"r")
-			local t_DNS = textutils.unserialize(_f.readAll())
-			if t_DNS[_ID] then
-				_ID = t_DNS[_ID]
-				if _ID == os.getComputerID() then
-					_SELF = true
-				end
-			else
-				_ID = false
-			end
-		end
-	else
-		if tonumber(_ID) == os.getComputerID() then
-			_SELF = true
-		end
-	end
-	return _SELF,_ID
-end
-
--- Parse and execute an SLL (Shark Language Line)
--- Returns: SUCCESS (True/False)
--- Called by: exec_SLS
-local function exec_LINE(_LINE)
-	local s_COMMAND = nil
-	local nArg_START = 0
-	local nArg_END = 0
-	local t_ARGS = {}
-	-- Detect if line is code or text
-	if _LINE:sub(1,1) == "<" then
-		-- Detect if line is inverse
-		if _LINE:sub(2,2) == "/" then
-			s_COMMAND = _LINE:sub(3,_LINE:find(">")-1)
-			if COMMANDS[s_COMMAND] then
-				COMMANDS[s_COMMAND].INV_FUNCTION()
-				return true
-			else
-				return false,"'"..s_COMMAND.."' command doesn't exist."
-			end
-		else
-			nArg_START = _LINE:find("%[")
-			if nArg_START then
-				nArg_END = _LINE:find("%]")
-				if nArg_END then
-					local _ARGS = _LINE:match("%[(.-)%]")
-                    for _ARG in _ARGS:gmatch( "[^,]+" ) do
-                        t_ARGS[#t_ARGS + 1] = _ARG:gsub("'\"", "")
-                    end
-					s_COMMAND = _LINE:sub(2,nArg_START-1)
-				else
-					return false,"No ending ']' for arguments."
-				end
-			else
-				s_COMMAND = _LINE:sub(2,_LINE:find(">")-1)
-			end
-			if COMMANDS[s_COMMAND] then
-				COMMANDS[s_COMMAND].FUNCTION(t_ARGS)
-				return true
-			else
-				return false,"'"..s_COMMAND.."' command doesn't exist."
-			end
-		end
-	else
-		if b_PRINTING then
-			local _,Y = term.getCursorPos()
-			term.setCursorPos(PRINT_X,Y)
-			print(_LINE)
-			return true
-		elseif b_WRITING then  
-			write(_LINE)
-			return true
-		elseif b_BUTTON then
-			COMMANDS["button"].CON_FUNCTION(_LINE)
-			return true
-		end
-	end
-end
-
--- Parse and execute an SLS (Shark Language Sheet)
--- Returns: SUCCESS (True/False)
--- Called by: exec_SHARKLE
-local function exec_SLS(_SLS)
-	local b_PRINTING = false
-	local b_WRITING = false
-	local b_BUTTON = false
-	local BUTTON_X = 0
-	local BUTTON_Y = 0
-	local BUTTON_W = 0
-	local OLD_COLOUR = nil
-	local OLD_X = 0
-	local OLD_Y = 0
-	local PRINT_X = 0
-	local nLine_NUMBER = 1
-	for _LINE in _SLS:gmatch("([^\n]*)\n?") do
-		local _STATUS,_ERROR = exec_LINE(_LINE:match("^%s*(.-)%s*$"))
-		if not _STATUS then
-			f_ERROR(_ERROR,nLine_NUMBER)
-		end
-		nLine_NUMBER = nLine_NUMBER + 1
-	end
-end
-
--- Parse Sharkle
--- Returns: ID, DOMAIN, EXTENSION, PATH
--- Called by: exec_SHARKLE
-local function parse_SHARKLE(_SHARKLE)
-	-- ID
-	local nID_START,nID_END = _SHARKLE:find("://",1)
-	local sSharkle_ID = _SHARKLE:sub(1,nID_START-1)
-	-- Domain
-	local nDomain_END = _SHARKLE:find("/",nID_END+1)
-	local sSharkle_DOMAIN = ""
-	if not nDomain_END then
-		nDomain_END = #_SHARKLE
-		sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END)
-	else
-		sSharkle_DOMAIN = _SHARKLE:sub(nID_END+1,nDomain_END-1)
-	end
-	-- Path
-	local sSharkle_PATH = ""
-	local sSharkle_EXTENSION = ""
-	if #_SHARKLE == nDomain_END then
-		sSharkle_PATH = "index"
-		sSharkle_EXTENSION = "sls"
-	else
-		sSharkle_PATH = _SHARKLE:sub(nDomain_END+1)
-		-- Extension
-		local nExtension_START = _SHARKLE:find("%.",nDomain_END+1)
-		if not nExtension_START then
-			sSharkle_EXTENSION = "sls"
-		else
-			sSharkle_EXTENSION = _SHARKLE:sub(nExtension_START+1)
-		end
-	end
-	return sSharkle_ID,sSharkle_DOMAIN,sSharkle_EXTENSION,sSharkle_PATH
-end
-
--- Execute Sharkle
--- Returns: SUCCESS (True/False)
-local function exec_SHARKLE(_SHARKLE)
-	local nError_CODE = nil
-	local _ID,_DOMAIN,_EXT,_PATH = parse_SHARKLE(_SHARKLE)
-	local _ME,_ID = resolve_ID(_ID)
-	if not _ME and not _ID then
-		nError_CODE = 6
-	end
-	if _ME then
-		if fs.exists(SHARK_PATH_SITES.._DOMAIN) and fs.isDir(SHARK_PATH_SITES.._DOMAIN) then
-			_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
-			if fs.exists(_FILEPATH) then
-				local _FILE = fs.open(_FILEPATH,"r")
-				local _CONTENT = _FILE.readAll()
-				_FILE.close()
-				exec_SLS(_CONTENT)
-			else
-				nError_CODE = 2
-			end
-		else
-			nError_CODE = 1
-		end
-	end
-	-- Redirect to Error Code page
-	if nError_CODE then
-		if nError_CODE == 1 or nError_CODE == 2 or nError_CODE == 6 then
-			SHARKLE = "local://not-found"
-		elseif nError_CODE == 3 then
-			SHARKLE = "local://timeout"
-		end
-		exec_SHARKLE(SHARKLE)
-		return true
-	end
-end
-
-exec_SHARKLE(SHARKLE)
