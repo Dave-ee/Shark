@@ -11,6 +11,7 @@
 			- Shark Language Sheet (.sls)
 		- Local Storage
 			- Shark Pages
+				- Home
 				- History
 				- Settings
 				- About
@@ -29,29 +30,104 @@
 			- 3: Host didn't respond (doesn't exist or Shark not running)
 			- 4: Host requires certificate
 			- 5: Host denied certificate
+			- 6: DNS couldn't resolve hostname
 --]]
 
-local SHARKLE = "local://test/"
+-- TEMP FS CREATION --
+if not fs.exists("/sharkfs") then
+	fs.makeDir("/sharkfs")
+	fs.makeDir("/sharkfs/sites")
+	fs.makeDir("/sharkfs/sites/test") -- domain 'test'
+	fs.makeDir("/sharkfs/sites/test/pages") -- pages of 'test'
+	local _f = fs.open("/sharkfs/sites/test/pages/index.sls","w")
+	local _t = {
+		"<color[blue]>",
+		"	<print[5,5]>",
+		"		Hey. This is the home page of the 'test' site!",
+		"	</print>",
+		"</color>"
+	}
+	for i=1,#_t do
+		_f.writeLine(_t[i])
+	end
+	_f.close()
+	error("Created 'sharkfs' directory and setup test environment. Please re-run Shark.",0)
+end
+-- END TEMP FS CREATION --
+
+local SHARKLE = "me://test/"
 
 local SHARK_PATH = "/sharkfs/"
 local SHARK_PATH_SITES = SHARK_PATH.."sites/"
 local SHARK_PATH_HISTORY = SHARK_PATH.."history"
 local SHARK_PATH_SETTINGS = SHARK_PATH.."settings"
 local SHARK_PATH_CERTS = SHARK_PATH.."certs"
+local SHARK_PATH_DNS = SHARK_PATH.."dns"
 
 local COMMANDS = {
-	
+	["color"] = {
+		FUNCTION = function(...)
+			local t = ...
+			OLD_COLOUR_T = term.getTextColor()
+			OLD_COLOUR_B = term.getBackgroundColor()
+			if #t > 1 then
+				term.setTextColor(colors[t[1]])
+				term.setBackgroundColor(colors[t[2]])
+			else
+				term.setTextColor(colors[t[1]])
+			end
+		end,
+		INV_FUNCTION = function()
+			term.setTextColor(OLD_COLOUR_T)
+			term.setBackgroundColor(OLD_COLOUR_B)
+		end
+	},
+	["print"] = {
+		FUNCTION = function(t)
+			b_PRINTING = true
+			local x, y = unpack(t)
+			term.setCursorPos(tonumber(x),tonumber(y))
+			PRINT_X = term.getCursorPos()
+		end,
+		INV_FUNCTION = function()
+			b_PRINTING = false
+		end
+	},
+	["write"] = {
+		FUNCTION = function(t)
+			local x, y = unpack(t)
+			term.setCursorPos(tonumber(x),tonumber(y))
+			b_WRITING = true
+		end,
+		INV_FUNCTION = function()
+			b_WRITING = false
+		end
+	},
+	["cursor"] = {
+		FUNCTION = function(...)
+			OLD_X, OLD_Y = term.getCursorPos()
+			term.setCursorPos(unpack(...))
+		end,
+		INV_FUNCTION = function()
+			term.setCursorPos(OLD_X,OLD_Y)
+		end
+	}
 }
 
 -- Print error
-local function f_ERROR(_STRING)
+local function f_ERROR(_STRING,_LINE)
 	term.setBackgroundColor(colors.black)
 	term.setTextColor(colors.red)
-	error("ERROR: ".._STRING,0)
+	if not _LINE and tonumber(_LINE) then
+		error("ERROR: ".._STRING,0)
+	else
+		error("ERROR:".._LINE..": ".._STRING,0)
+	end
 end
 
 -- Resolve ID
 -- Returns: Self (True/False), ID (Computer ID)
+-- Called by: exec_SHARKLE
 local function resolve_ID(_ID)
 	local _SELF = false
 	if not tonumber(_ID) then
@@ -61,6 +137,17 @@ local function resolve_ID(_ID)
 		elseif _ID == "localhost" then
 			_SELF = true
 			_ID = os.getComputerID()
+		else
+			local _f = fs.open(SHARK_PATH_DNS,"r")
+			local t_DNS = textutils.unserialize(_f.readAll())
+			if t_DNS[_ID] then
+				_ID = t_DNS[_ID]
+				if _ID == os.getComputerID() then
+					_SELF = true
+				end
+			else
+				_ID = false
+			end
 		end
 	else
 		if tonumber(_ID) == os.getComputerID() then
@@ -70,8 +157,84 @@ local function resolve_ID(_ID)
 	return _SELF,_ID
 end
 
+-- Parse and execute an SLL (Shark Language Line)
+-- Returns: SUCCESS (True/False)
+-- Called by: exec_SLS
+local function exec_LINE(_LINE)
+	local s_COMMAND = nil
+	local nArg_START = 0
+	local nArg_END = 0
+	local t_ARGS = {}
+	-- Detect if line is code or text
+	if _LINE:sub(1,1) == "<" then
+		-- Detect if line is inverse
+		if _LINE:sub(2,2) == "/" then
+			s_COMMAND = _LINE:sub(3,_LINE:find(">")-1)
+			if COMMANDS[s_COMMAND] then
+				COMMANDS[s_COMMAND].INV_FUNCTION()
+				return true
+			else
+				return false,"'"..s_COMMAND.."' command doesn't exist."
+			end
+		else
+			nArg_START = _LINE:find("%[")
+			if nArg_START then
+				nArg_END = _LINE:find("%]")
+				if nArg_END then
+					local _ARGS = _LINE:match("%[(.-)%]")
+                    for _ARG in _ARGS:gmatch( "[^,]+" ) do
+                        t_ARGS[#t_ARGS + 1] = _ARG:gsub("'\"", "")
+                    end
+					s_COMMAND = _LINE:sub(2,nArg_START-1)
+				else
+					return false,"No ending ']' for arguments."
+				end
+			else
+				s_COMMAND = _LINE:sub(2,_LINE:find(">")-1)
+			end
+			if COMMANDS[s_COMMAND] then
+				COMMANDS[s_COMMAND].FUNCTION(t_ARGS)
+				return true
+			else
+				return false,"'"..s_COMMAND.."' command doesn't exist."
+			end
+		end
+	else
+		if b_PRINTING then
+			local _,Y = term.getCursorPos()
+			term.setCursorPos(PRINT_X,Y)
+			print(_LINE)
+			return true
+		elseif b_WRITING then  
+			write(_LINE)
+			return true
+		end
+	end
+end
+
+-- Parse and execute an SLS (Shark Language Sheet)
+-- Returns: SUCCESS (True/False)
+-- Called by: exec_SHARKLE
+local function exec_SLS(_SLS)
+	local b_PRINTING = false
+	local b_WRITING = false
+	local OLD_COLOUR = nil
+	local OLD_X = 0
+	local OLD_Y = 0
+	local PRINT_X = 0
+	local nLine_NUMBER = 1
+	for _LINE in _SLS:gmatch("([^\n]*)\n?") do
+		local _STATUS,_ERROR = exec_LINE(_LINE:match("^%s*(.-)%s*$"))
+		if not _STATUS then
+			f_ERROR(_ERROR,nLine_NUMBER)
+		end
+		nLine_NUMBER = nLine_NUMBER + 1
+	end
+end
+
 -- Parse Sharkle
 -- Returns: ID, DOMAIN, EXTENSION, PATH
+-- Called by: exec_SHARKLE
 local function parse_SHARKLE(_SHARKLE)
 	-- ID
 	local nID_START,nID_END = _SHARKLE:find("://",1)
@@ -104,24 +267,15 @@ local function parse_SHARKLE(_SHARKLE)
 	return sSharkle_ID,sSharkle_DOMAIN,sSharkle_EXTENSION,sSharkle_PATH
 end
 
--- Parse and execute an SLL (Shark Language Line)
--- Returns: SUCCESS (True/False)
-local function exec_LINE(_LINE)
-	
-end
-
--- Parse and execute an SLS (Shark Language Sheet)
--- Returns: SUCCESS (True/False)
-local function exec_SLS(_SLS)
-	
-end
-
 -- Execute Sharkle
 -- Returns: SUCCESS (True/False)
 local function exec_SHARKLE(_SHARKLE)
 	local nError_CODE = nil
 	local _ID,_DOMAIN,_EXT,_PATH = parse_SHARKLE(_SHARKLE)
 	local _ME,_ID = resolve_ID(_ID)
+	if not _ME and not _ID then
+		nError_CODE = 6
+	end
 	if _ME then
 		if fs.exists(SHARK_PATH_SITES.._DOMAIN) and fs.isDir(SHARK_PATH_SITES.._DOMAIN) then
 			_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
@@ -129,12 +283,7 @@ local function exec_SHARKLE(_SHARKLE)
 				local _FILE = fs.open(_FILEPATH,"r")
 				local _CONTENT = _FILE.readAll()
 				_FILE.close()
-				local _bError,_sError = pcall(exec_SLS,_CONTENT)
-				if _bError then
-					f_ERROR(_sError)
-				else
-					return true
-				end
+				exec_SLS(_CONTENT)
 			else
 				nError_CODE = 2
 			end
@@ -144,9 +293,7 @@ local function exec_SHARKLE(_SHARKLE)
 	end
 	-- Redirect to Error Code page
 	if nError_CODE then
-		if nError_CODE == 1 then
-			SHARKLE = "local://not-found"
-		elseif nError_CODE == 2 then
+		if nError_CODE == 1 or nError_CODE == 2 or nError_CODE == 6 then
 			SHARKLE = "local://not-found"
 		elseif nError_CODE == 3 then
 			SHARKLE = "local://timeout"
@@ -155,4 +302,4 @@ local function exec_SHARKLE(_SHARKLE)
 	end
 end
 
-print(parse_SHARKLE(SHARKLE))
+exec_SHARKLE(SHARKLE)
