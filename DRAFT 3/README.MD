@@ -14,7 +14,8 @@ Planned:
     - Requires their X, Y, W, H
 - Additions to SLS commands (*IN PROGRESS*)
   - Button (drawing done, awaiting event handler)
-    - Arguments: X, Y
+    - Arguments: X, Y, LINK
+    - Arguments: X, Y, W, H, LINK
   - Checkbox
     - Arguments: X, Y, State (default: false)
   - Image
