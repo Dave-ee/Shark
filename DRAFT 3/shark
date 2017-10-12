@@ -31,6 +31,7 @@
 			- 4: Host requires certificate
 			- 5: Host denied certificate
 			- 6: DNS couldn't resolve hostname
+			- 7: Errors on requested SLS
 --]]
 
 local SHARKLE = "local://test/"
@@ -43,24 +44,17 @@ local SHARK_PATH_CERTS = SHARK_PATH.."certs"
 local SHARK_PATH_DNS = SHARK_PATH.."dns"
 local SHARK_PATH_LOG = SHARK_PATH.."log"
 
-local SYNTAX_CHARACTERS = {
-	["tag_start"] = "<",
-	["tag_end"] = ">",
-	["tag_inverse"] = "/",
-	["arg_start"] = "%[",
-	["arg_end"] = "%]"
-}
-
 local GLOBALS = {
 	["color"] = {
 		SWITCH = false,
-		OLD_TC = nil,
-		OLD_BC = nil
+		COUNT = 0,
+		STORE_TC = {},
+		STORE_BC = {}
 	},
 	["cursor"] = {
 		SWITCH = false,
-		X = 0,
-		Y = 0
+		COUNT = 0,
+		STORE = {}
 	},
 	["print"] = {
 		SWITCH = false,
@@ -85,12 +79,15 @@ local GLOBALS = {
 	}
 }
 
+local FIELDS = {}
+
 local COMMANDS = {
 	["color"] = {
 		FUNCTION = function(t)
 			GLOBALS["color"].SWITCH = true
-			GLOBALS["color"].OLD_TC = term.getTextColor()
-			GLOBALS["color"].OLD_BC = term.getBackgroundColor()
+			GLOBALS["color"].COUNT = GLOBALS["color"].COUNT + 1
+			GLOBALS["color"].STORE_TC[GLOBALS["color"].COUNT] = term.getTextColor()
+			GLOBALS["color"].STORE_BC[GLOBALS["color"].COUNT] = term.getBackgroundColor()
 			if #t > 1 then
 				term.setTextColor(colors[t[1]])
 				term.setBackgroundColor(colors[t[2]])
@@ -103,17 +100,17 @@ local COMMANDS = {
 		end,
 		INV_FUNCTION = function()
 			GLOBALS["color"].SWITCH = false
-			term.setTextColor(GLOBALS["color"].OLD_TC)
-			term.setBackgroundColor(GLOBALS["color"].OLD_BC)
-			GLOBALS["color"].OLD_TC = nil
-			GLOBALS["color"].OLD_BC = nil
+			GLOBALS["color"].COUNT = GLOBALS["color"].COUNT - 1 
+			term.setTextColor(GLOBALS["color"].STORE_TC[GLOBALS["color"].COUNT])
+			term.setBackgroundColor(GLOBALS["color"].STORE_BC[GLOBALS["color"].COUNT])
 		end
 	},
 	["cursor"] = {
 		FUNCTION = function(t)
 			GLOBALS["cursor"].SWITCH = true
 			local _X,_Y = unpack(t)
-			GLOBALS["cursor"].OLD_X,GLOBALS["cursor"].OLD_Y = term.getCursorPos()
+			GLOBALS["cursor"].COUNT = GLOBALS["cursor"] + 1
+			GLOBALS["cursor"].STORE[GLOBALS["cursor"].COUNT] = {term.getCursorPos()}
 			term.setCursorPos(tonumber(_X),tonumber(_Y))
 		end,
 		CON_FUNCTION = function()
@@ -121,9 +118,8 @@ local COMMANDS = {
 		end,
 		INV_FUNCTION = function()
 			GLOBALS["color"].SWITCH = false
-			term.setCursorPos(GLOBALS["cursor"].OLD_X,GLOBALS["cursor"].OLD_Y)
-			GLOBALS["color"].OLD_X = 0
-			GLOBALS["color"].OLD_Y = 0
+			GLOBALS["cursor"].COUNT = GLOBALS["cursor"].COUNT - 1
+			term.setCursorPos(unpack(GLOBALS["cursor"].STORE))
 		end
 	},
 	["print"] = {
@@ -214,10 +210,12 @@ local COMMANDS = {
 
 local LOCALS = {
 	["COMMAND"] = nil,
+	["ERRORS"] = nil,
+	["SHARKLE_LAST"] = nil,
 }
 
 -- Log error to file
--- Arguments: ERROR (String), LINE (Number)
+-- Arguments: TYPE (String), ERROR (String), LINE (Number)
 -- Called by: f_ERROR
 local function f_LOG(_T,_S,_L)
 	local s_TIME = textutils.formatTime(os.time(),true)
@@ -259,57 +257,214 @@ local function f_ERROR(_S,_L)
 	end
 end
 
--- Parse and execute an SLL (Shark Language Line)
--- Returns: SUCCESS (Boolean), ERROR (String)
--- Called by:
-local function exe_SLL(_SLL)
-	local s_LASTCOMMAND = LOCALS["COMMAND"]
-	local n_ARG_START = 0
-	local n_ARG_END = 0
-	local t_ARGS = {}
-	if _SLL:sub(1,1) == SYNTAX_CHARACTERS["tag_start"] then
-		if _SLL:sub(2,2) == SYNTAX_CHARACTERS["tag_inverse"] then
-			LOCALS["COMMAND"] = _SSL:sub(3,_SLL:find(SYNTAX_CHARACTERS["tag_end"])-1)
-			if COMMANDS[LOCALS["COMMAND"]] then
-				COMMANDS[LOCALS["COMMAND"]].INV_FUNCTION()
-				return true
-			else
-				return false,"'"..LOCALS["COMMAND"].."' command doesn't exist"
-			end
+-- Resolve name
+-- Returns Self (True/False), ID (Computer ID)
+-- called by: exe_SHARKLE
+local function f_RESOLVE_NAME(_NAME)
+	local b_SELF = false
+	if not tonumber(_NAME) then
+		if _NAME == "local" or _NAME == "localhost" then
+			_SELF = true
+			_ID = os.getComputerID()
 		else
-			n_ARG_START = _SLL:find(SYNTAX_CHARACTERS["tag_start"])
-			if n_ARG_START then
-				n_ARG_END = _SLL:find(SYNTAX_CHARACTERS["tag_end"])
-				if n_ARG_END then
-					local _ARGS = _SLL:match(SYNTAX_CHARACTERS["tag_start"].."(.-)"..SYNTAX_CHARACTERS["tag_end"])
-                    for _ARG in _ARGS:gmatch( "[^,]+" ) do
-                        t_ARGS[#t_ARGS + 1] = _ARG:gsub("'\"", "")
-                    end
-					LOCALS["COMMAND"] = _SLL:sub(2,n_ARG_START-1)
-				else
-					return false,"No ending '"..SYNTAX_CHARACTERS["arg_end"].."' for arguments"
+			local _f = fs.open(SHARK_PATH_DNS,"r")
+			local t_DNS = textutils.unseralize(_f.readAll())
+			if t_DNS[_NAME] then
+				_ID = t_DNS[_NAME]
+				if _ID == os.getComputerID() then
+					_SELF = true
 				end
 			else
-				LOCALS["COMMAND"] = _SLL:sub(2,_SLL:find(SYNTAX_CHARACTERS["tag_end"])-1)
-			end
-			if COMMANDS[LOCALS["COMMAND"]] then
-				COMMANDS[LOCALS["COMMAND"]].FUNCTION(t_ARGS)
-				return true
-			else
-				return false,"'"..LOCALS["COMMAND"].."' command doesn't exist"
+				_ID = false
 			end
 		end
 	else
-		if not s_LASTCOMMAND then
+		if tonumber(_NAME) == os.getComputerID() then
+			_SELF = true
+		end
+	end
+	return _SELF,_ID
+end
+
+-- Parse and execute an SLL (Shark Language Line)
+-- Returns: SUCCESS (Boolean), ERROR (String)
+-- Called by: exe_SLS
+local function exe_SLL(_SLL)
+	local s_COMMAND_LAST = nil
+	if COMMANDS[LOCALS["COMMAND"]] then
+		s_COMMAND_LAST = LOCALS["COMMAND"]
+	end
+	local n_ARG_START = 0
+	local n_ARG_END = 0
+	local t_ARGS = {}
+	if _SLL:sub(1,1) == "<" then
+		if _SLL:find(">") then
+			if _SLL:sub(2,2) == "/" then
+				LOCALS["COMMAND"] = _SLL:sub(3,_SLL:find(">")-1)
+				if COMMANDS[LOCALS["COMMAND"]] then
+					COMMANDS[LOCALS["COMMAND"]].INV_FUNCTION()
+					return true
+				else
+					return false,"'"..LOCALS["COMMAND"].."' command doesn't exist"
+				end
+			else
+				n_ARG_START = _SLL:find("%[")
+				if n_ARG_START then
+					n_ARG_END = _SLL:find("%]")
+					if n_ARG_END then
+						local _ARGS = _SLL:match("%[(.-)%]")
+						for _ARG in _ARGS:gmatch("[^,]+") do
+							t_ARGS[#t_ARGS + 1] = _ARG:gsub("'\"", "")
+						end
+						LOCALS["COMMAND"] = _SLL:sub(2,n_ARG_START-1)
+					else
+						return false,"No ending ']' for arguments"
+					end
+				else
+					LOCALS["COMMAND"] = _SLL:sub(2,_SLL:find(">")-1)
+				end
+				if COMMANDS[LOCALS["COMMAND"]] then
+					COMMANDS[LOCALS["COMMAND"]].FUNCTION(t_ARGS)
+					return true
+				else
+					return false,"'"..LOCALS["COMMAND"].."' command doesn't exist"
+				end
+			end
+		else
+			return false,"No ending '>' tag"
+		end
+	else
+		if not s_COMMAND_LAST then
 			return false,"Invalid syntax"
 		else
-			if COMMANDS[s_LASTCOMMAND].CON_FUNCTION then
-				COMMANDS[s_LASTCOMMAND].CON_FUNCTION(_SSL)
-				return true
-			else
-				return false,"Invalid use of text"
-			end
+			COMMANDS[s_COMMAND_LAST].CON_FUNCTION(_SLL)
+			return true
 		end
 	end
 end
 
+-- Parse and execute an SLS (Shark Language Sheet)
+-- Returns: Errors (Table)
+-- Called by: exe_SHARKLE
+local function exe_SLS(_SLS)
+	local t_ERRORS = {}
+	local n_LINE = 1
+	for _SLL in _SLS:gmatch("([^\n]*)\n?") do
+		local _STATUS,_ERROR = exe_SLL(_SLL:match("^%s*(.-)%s*$"))
+		if not _STATUS then
+			t_ERRORS[n_LINE] = _ERROR
+		end
+		n_LINE = n_LINE + 1
+	end
+	return t_ERRORS
+end
+
+-- Parse a SHARKLE
+-- Returns: ID, DOMAIN, EXTENSION, PATH
+-- Called by: exe_SHARKLE
+local function prs_SHARKLE(_SHARKLE)
+	local n_ID_START, n_ID_END = _SHARKLE:find("://",1)
+	local s_ID = _SHARKLE:sub(1,n_ID_START-1)
+	local n_DOMAIN_END = _SHARKLE:find("/",n_ID_END+1)
+	local s_DOMAIN = ""
+	if not n_DOMAIN_END then
+		n_DOMAIN_END = #_SHARKLE
+		s_DOMAIN = _SHARKLE:sub(n_ID_END+1,n_DOMAIN_END)
+	else
+		s_DOMAIN = _SHARKLE:sub(n_ID_END+1,n_DOMAIN_END-1)
+	end
+	local s_PATH = ""
+	local s_EXT = ""
+	if #_SHARKLE == n_DOMAIN_END then
+		s_PATH = "index"
+		s_EXT = "sls"
+	else
+		s_PATH = _SHARKLE:sub(n_DOMAIN_END+1)
+		local n_EXT_START = _SHARKLE:find("%.",n_DOMAIN_END+1)
+		if not n_EXT_START then
+			s_EXT = "sls"
+		else
+			s_EXT = _SHARKLE:sub(n_EXT_START+1)
+		end
+	end
+	return s_ID,s_DOMAIN,s_EXT,s_PATH
+end
+
+-- Execute a SHARKLE
+local function exe_SHARKLE(_SHARKLE)
+	local n_ERROR_CODE = nil
+	local _ID,_DOMAIN,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
+	local b_ME,n_ID = f_RESOLVE_NAME(_ID)
+	if not b_ME and not n_ID then
+		n_ERROR_CODE = 6
+	end
+	if b_ME then
+		-- Check if it's a Shark page
+		if _DOMAIN == "errors" then
+			if LOCALS["ERRORS"] then
+				for k,v in pairs(LOCALS["ERRORS"]) do
+					f_LOG("ERROR",v,k)
+				end
+				--term.redirect(tm_PAGE)
+				term.setTextColor(colors.red)
+				term.setBackgroundColor(colors.black)
+				term.clear()
+				term.setCursorPos(2,5)
+				print("Uh Oh! There was a problem!")
+				term.setTextColor(colors.white)
+				term.setCursorPos(2,7)
+				print("Information:")
+				term.setTextColor(colors.gray)
+				term.setCursorPos(2,8)
+				print("Sharkle: "..LOCALS["SHARKLE_LAST"])
+				term.setCursorPos(2,9)
+				print("Errors: "..#LOCALS["ERRORS"])
+				term.setTextColor(colors.white)
+				term.setCursorPos(2,11)
+				print("Errors have been logged.")
+				term.setCursorPos(2,12)
+				print("Please contact the Administrator of the site!")
+				--term.redirect(tm_SHARK)
+			else
+				--term.redirect(tm_PAGE)
+				term.setTextColor(colors.red)
+				term.setBackgroundColor(colors.black)
+				term.clear()
+				term.setCursorPos(2,5)
+				print("Uh Oh! There was a problem!")
+				--term.redirect(tm_SHARK)
+			end
+		-- It's not, so let's check if it's a site
+		else
+			if fs.exists(SHARK_PATH_SITES.._DOMAIN) and fs.isDir(SHARK_PATH_SITES.._DOMAIN) then
+				_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
+				if fs.exists(_FILEPATH) then
+					local _f = fs.open(_FILEPATH,"r")
+					local _c = _f.readAll()
+					_f.close()
+					local t_ERRORS = exe_SLS(_c)
+					if #t_ERRORS > 0 then
+						LOCALS["ERRORS"] = t_ERRORS
+						n_ERROR_CODE = 7
+					end
+				else
+					n_ERROR_CODE = 2
+				end
+			else
+				n_ERROR_CODE = 1
+			end
+		end
+	end
+	LOCALS["SHARKLE_LAST"] = SHARKLE
+	if n_ERROR_CODE then
+		if nError_CODE == 1 or nError_CODE == 2 or nError_CODE == 3 or nError_CODE == 6 then
+			SHARKLE = "local://not-found"
+		elseif n_ERROR_CODE == 7 then
+			SHARKLE = "local://errors"
+		end
+		LOCALS["SHARKLE_LAST"] = SHARKLE
+		return exe_SHARKLE(SHARKLE)
+	end
+end
+
+exe_SHARKLE(SHARKLE)
