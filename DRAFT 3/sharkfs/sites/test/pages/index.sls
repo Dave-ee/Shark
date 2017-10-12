@@ -2,9 +2,7 @@
 	<button[5,5,7,4,local://test/]>
 		what?
 		<color[blue]>
-			<print[3,3]>
-				test!
-			</print>
+			test!
 		</color>
 	</button>
 </color>
