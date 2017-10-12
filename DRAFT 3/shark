@@ -46,15 +46,11 @@ local SHARK_PATH_LOG = SHARK_PATH.."log"
 
 local GLOBALS = {
 	["color"] = {
-		SWITCH = false,
-		COUNT = 1,
-		STORE_TC = {},
-		STORE_BC = {}
+		STACK_TC = {term.getTextColor()},
+		STACK_BC = {term.getBackgroundColor()}
 	},
 	["cursor"] = {
-		SWITCH = false,
-		COUNT = 1,
-		STORE = {}
+		STACK = {{term.getCursorPos()}}
 	},
 	["print"] = {
 		SWITCH = false,
@@ -84,14 +80,14 @@ local FIELDS = {}
 local COMMANDS = {
 	["color"] = {
 		FUNCTION = function(t)
-			GLOBALS["color"].SWITCH = true
-			GLOBALS["color"].STORE_TC[GLOBALS["color"].COUNT] = term.getTextColor()
-			GLOBALS["color"].STORE_BC[GLOBALS["color"].COUNT] = term.getBackgroundColor()
-			GLOBALS["color"].COUNT = GLOBALS["color"].COUNT + 1
 			if #t > 1 then
+				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
+				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = colors[t[2]]
 				term.setTextColor(colors[t[1]])
 				term.setBackgroundColor(colors[t[2]])
 			else
+				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
+				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = term.getBackgroundColor()
 				term.setTextColor(colors[t[1]])
 			end
 		end,
@@ -99,32 +95,24 @@ local COMMANDS = {
 			return nil
 		end,
 		INV_FUNCTION = function()
-			term.setTextColor(GLOBALS["color"].STORE_TC[GLOBALS["color"].COUNT])
-			term.setBackgroundColor(GLOBALS["color"].STORE_BC[GLOBALS["color"].COUNT])
-			GLOBALS["color"].COUNT = GLOBALS["color"].COUNT - 1
-			if GLOBALS["color"].COUNT == 0 then
-				GLOBALS["color"].SWITCH = false
-			end
+			GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC] = nil
+			GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC] = nil
+			term.setTextColor(GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC])
+			term.setBackgroundColor(GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC])
 		end
 	},
 	["cursor"] = {
 		FUNCTION = function(t)
-			GLOBALS["cursor"].SWITCH = true
 			local _X,_Y = unpack(t)
-			GLOBALS["cursor"].STORE[GLOBALS["cursor"].COUNT] = {term.getCursorPos()}
-			GLOBALS["cursor"].COUNT = GLOBALS["cursor"] + 1
+			GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK + 1] = { _X, _Y }
 			term.setCursorPos(tonumber(_X),tonumber(_Y))
 		end,
 		CON_FUNCTION = function()
 			return nil
 		end,
 		INV_FUNCTION = function()
-			term.setCursorPos(unpack(GLOBALS["cursor"].STORE))
-			GLOBALS["cursor"].COUNT = GLOBALS["cursor"].COUNT - 1
-			if GLOBALS["cursor"].COUNT == 0 then
-				GLOBALS["color"].SWITCH = false
-			end
-			
+			GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK] = nil
+			term.setCursorPos(unpack(GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK]))
 		end
 	},
 	["print"] = {
