@@ -24,4 +24,3 @@ Changelog:
   - Errors (*COMPLETE*)
   - History (*IN PROGRESS*)
 - Shark Pages (Home/History/Settings/About) (*NOT STARTED*)
-- Customisable language syntax (*COMPLETE*)
