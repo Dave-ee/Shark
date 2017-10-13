@@ -10,6 +10,13 @@ Changelog:
     </print> --# Calls print's 'INV_FUNCTION'
     ```
     - Also means users can create their own commands easily
+  - Fix 'print' and 'write' so that they don't have to take arguments
+    - E.g.
+    ```
+    <print> --# Uses current cursor position
+      hey!
+    </print>
+    ```
   - Add a 'FIELD' entry for each button/checkbox/link so that the event handler can handle the mouse clicks on them (*NOT STARTED*)
     - Requires their X, Y, W, H
 - Additions to SLS commands (*IN PROGRESS*)
