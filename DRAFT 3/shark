@@ -299,7 +299,7 @@ local function exe_SLL(_SLL)
 	local n_ARG_END = 0
 	local t_ARGS = {}
 	if _SLL:sub(1,1) == "<" then
-		if _SLL:find(">") then
+		if _SLL:sub(#_SLL,#_SLL) == ">" then
 			if _SLL:sub(2,2) == "/" then
 				LOCALS["COMMAND"] = _SLL:sub(3,_SLL:find(">")-1)
 				if COMMANDS[LOCALS["COMMAND"]] then
