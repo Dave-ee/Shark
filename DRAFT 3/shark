@@ -50,7 +50,8 @@ local GLOBALS = {
 		STACK_BC = {term.getBackgroundColor()}
 	},
 	["cursor"] = {
-		STACK = {{term.getCursorPos()}}
+		STACK_X = {term.getCursorPos()},
+		STACK_Y = {select(2,term.getCursorPos())}
 	},
 	["print"] = {
 		SWITCH = false,
@@ -78,48 +79,16 @@ local GLOBALS = {
 local FIELDS = {}
 
 local COMMANDS = {
-	["color"] = {
-		FUNCTION = function(t)
-			if #t > 1 then
-				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
-				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = colors[t[2]]
-				term.setTextColor(colors[t[1]])
-				term.setBackgroundColor(colors[t[2]])
-			else
-				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
-				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = term.getBackgroundColor()
-				term.setTextColor(colors[t[1]])
-			end
-		end,
-		CON_FUNCTION = function()
-			return nil
-		end,
-		INV_FUNCTION = function()
-			GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC] = nil
-			GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC] = nil
-			term.setTextColor(GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC])
-			term.setBackgroundColor(GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC])
-		end
-	},
-	["cursor"] = {
-		FUNCTION = function(t)
-			local _X,_Y = unpack(t)
-			GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK + 1] = { _X, _Y }
-			term.setCursorPos(tonumber(_X),tonumber(_Y))
-		end,
-		CON_FUNCTION = function()
-			return nil
-		end,
-		INV_FUNCTION = function()
-			GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK] = nil
-			term.setCursorPos(unpack(GLOBALS["cursor"].STACK[#GLOBALS["cursor"].STACK]))
-		end
-	},
 	["print"] = {
 		FUNCTION = function(t)
 			GLOBALS["print"].SWITCH = true
-			local _X,_Y = unpack(t)
-			term.setCursorPos(tonumber(_X),tonumber(_Y))
+			local _X,_Y = 0, 0
+			if #t > 0 then
+				_X,_Y = unpack(t)
+				term.setCursorPos(tonumber(_X),tonumber(_Y))
+			else
+				_X,_Y = term.getCursorPos()
+			end
 			GLOBALS["print"].X,GLOBALS["print"].Y = term.getCursorPos()
 		end,
 		CON_FUNCTION = function(s)
@@ -136,9 +105,13 @@ local COMMANDS = {
 	},
 	["write"] = {
 		FUNCTION = function(t)
-			GLOBALS["write"].SWITCH = true
-			local _X,_Y = unpack(t)
-			term.setCursorPos(tonumber(_X),tonumber(_Y))
+			local _X,_Y = 0, 0
+			if #t > 0 then
+				_X,_Y = unpack(t)
+				term.setCursorPos(tonumber(_X),tonumber(_Y))
+			else
+				_X,_Y = term.getCursorPos()
+			end
 			GLOBALS["write"].X,GLOBALS["write"].Y = term.getCursorPos()
 		end,
 		CON_FUNCTION = function(s)
@@ -198,13 +171,47 @@ local COMMANDS = {
 			GLOBALS["button"].LINK = ""
 			GLOBALS["button"].COUNT = 1
 		end
+	},
+	["color"] = {
+		FUNCTION = function(t)
+			if #t > 1 then
+				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
+				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = colors[t[2]]
+				term.setTextColor(colors[t[1]])
+				term.setBackgroundColor(colors[t[2]])
+			else
+				GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC + 1] = colors[t[1]]
+				GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC + 1] = term.getBackgroundColor()
+				term.setTextColor(colors[t[1]])
+			end
+		end,
+		INV_FUNCTION = function()
+			GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC] = nil
+			GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC] = nil
+			term.setTextColor(GLOBALS["color"].STACK_TC[#GLOBALS["color"].STACK_TC])
+			term.setBackgroundColor(GLOBALS["color"].STACK_BC[#GLOBALS["color"].STACK_BC])
+		end
+	},
+	["cursor"] = {
+		FUNCTION = function(t)
+			local _X,_Y = unpack(t)
+			GLOBALS["cursor"].STACK_X[#GLOBALS["cursor"].STACK_X + 1] = tonumber(_X)
+			GLOBALS["cursor"].STACK_Y[#GLOBALS["cursor"].STACK_Y + 1] = tonumber(_Y)
+			term.setCursorPos(tonumber(_X),tonumber(_Y))
+		end,
+		INV_FUNCTION = function()
+			GLOBALS["cursor"].STACK_X[#GLOBALS["cursor"].STACK_X] = nil
+			GLOBALS["cursor"].STACK_Y[#GLOBALS["cursor"].STACK_Y] = nil
+			term.setCursorPos(GLOBALS["cursor"].STACK_X[#GLOBALS["cursor"].STACK_X],GLOBALS["cursor"].STACK_Y[#GLOBALS["cursor"].STACK_Y])
+		end
 	}
 }
 
 local LOCALS = {
 	["COMMAND"] = nil,
+	["COMMAND_LAST"] = nil,
 	["ERRORS"] = nil,
-	["SHARKLE_LAST"] = nil,
+	["SHARKLE_LAST"] = nil
 }
 
 -- Log error to file
@@ -283,9 +290,10 @@ end
 -- Returns: SUCCESS (Boolean), ERROR (String)
 -- Called by: exe_SLS
 local function exe_SLL(_SLL)
-	local s_COMMAND_LAST = nil
 	if COMMANDS[LOCALS["COMMAND"]] then
-		s_COMMAND_LAST = LOCALS["COMMAND"]
+		if COMMANDS[LOCALS["COMMAND"]].CON_FUNCTION then
+			LOCALS["COMMAND_LAST"] = LOCALS["COMMAND"]
+		end
 	end
 	local n_ARG_START = 0
 	local n_ARG_END = 0
@@ -295,6 +303,7 @@ local function exe_SLL(_SLL)
 			if _SLL:sub(2,2) == "/" then
 				LOCALS["COMMAND"] = _SLL:sub(3,_SLL:find(">")-1)
 				if COMMANDS[LOCALS["COMMAND"]] then
+					LOCALS["COMMAND_LAST"] = nil
 					COMMANDS[LOCALS["COMMAND"]].INV_FUNCTION()
 					return true
 				else
@@ -327,10 +336,10 @@ local function exe_SLL(_SLL)
 			return false,"No ending '>' tag"
 		end
 	else
-		if not s_COMMAND_LAST then
-			return false,"Invalid syntax"
+		if not LOCALS["COMMAND_LAST"] then
+			return false,"Invalid line format"
 		else
-			COMMANDS[s_COMMAND_LAST].CON_FUNCTION(_SLL)
+			COMMANDS[LOCALS["COMMAND_LAST"]].CON_FUNCTION(_SLL)
 			return true
 		end
 	end
