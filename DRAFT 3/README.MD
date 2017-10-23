@@ -10,7 +10,7 @@ Changelog:
     </print> --# Calls print's 'INV_FUNCTION'
     ```
     - Also means users can create their own commands easily
-  - Fix 'print' and 'write' so that they don't have to take arguments
+  - Fix 'print' and 'write' so that they don't have to take arguments (*COMPLETE*)
     - E.g.
     ```
     <print> --# Uses current cursor position
