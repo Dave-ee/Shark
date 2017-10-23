@@ -17,7 +17,7 @@ Changelog:
       hey!
     </print>
     ```
-  - Add a 'FIELD' entry for each button/checkbox/link so that the event handler can handle the mouse clicks on them (*NOT STARTED*)
+  - Add a 'FIELD' entry for each button/checkbox/link so that the event handler can handle the mouse clicks on them (*IN PROGRESS*)
     - Requires their X, Y, W, H
 - Additions to SLS commands (*IN PROGRESS*)
   - Button (*IN PROGRESS*)
@@ -27,7 +27,7 @@ Changelog:
     - Arguments: X, Y, State (default: false)
   - Image (*NOT STARTED*)
     - Arguments: X, Y, Image Sharkle
-- Log (*IN PROGRESS*)
+- Log (*COMPLETE*)
   - Errors (*COMPLETE*)
-  - History (*IN PROGRESS*)
-- Shark Pages (Home/History/Settings/About) (*NOT STARTED*)
+  - History (*COMPLETE*)
+- Shark Pages (Home/History/Settings/About) (*IN PROGRESS*)
