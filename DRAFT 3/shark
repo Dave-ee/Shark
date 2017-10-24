@@ -25,7 +25,7 @@
 			- Certificates
 				- Allows you to access certain private sites
 		- Error Codes
-			- 1: Domain not found
+			- 1: Site not found
 			- 2: Page not found
 			- 3: Host didn't respond (doesn't exist or Shark not running)
 			- 4: Host requires certificate from client
@@ -592,34 +592,34 @@ function exe_SLS(_SLS)
 end
 
 -- Parse a SHARKLE
--- Returns: ID, DOMAIN, EXTENSION, PATH
+-- Returns: ID, SITE, EXTENSION, PATH
 -- Called by: exe_SHARKLE
 function prs_SHARKLE(_SHARKLE)
 	local n_ID_START, n_ID_END = _SHARKLE:find("://",1)
 	local s_ID = _SHARKLE:sub(1,n_ID_START-1)
-	local n_DOMAIN_END = _SHARKLE:find("/",n_ID_END+1)
-	local s_DOMAIN = ""
-	if not n_DOMAIN_END then
-		n_DOMAIN_END = #_SHARKLE
-		s_DOMAIN = _SHARKLE:sub(n_ID_END+1,n_DOMAIN_END)
+	local n_SITE_END = _SHARKLE:find("/",n_ID_END+1)
+	local s_SITE = ""
+	if not n_SITE_END then
+		n_SITE_END = #_SHARKLE
+		s_SITE = _SHARKLE:sub(n_ID_END+1,n_SITE_END)
 	else
-		s_DOMAIN = _SHARKLE:sub(n_ID_END+1,n_DOMAIN_END-1)
+		s_SITE = _SHARKLE:sub(n_ID_END+1,n_SITE_END-1)
 	end
 	local s_PATH = ""
 	local s_EXT = ""
-	if #_SHARKLE == n_DOMAIN_END then
+	if #_SHARKLE == n_SITE_END then
 		s_PATH = "index"
 		s_EXT = "sls"
 	else
-		s_PATH = _SHARKLE:sub(n_DOMAIN_END+1)
-		local n_EXT_START = _SHARKLE:find("%.",n_DOMAIN_END+1)
+		s_PATH = _SHARKLE:sub(n_SITE_END+1)
+		local n_EXT_START = _SHARKLE:find("%.",n_SITE_END+1)
 		if not n_EXT_START then
 			s_EXT = "sls"
 		else
 			s_EXT = _SHARKLE:sub(n_EXT_START+1)
 		end
 	end
-	return s_ID,s_DOMAIN,s_EXT,s_PATH
+	return s_ID,s_SITE,s_EXT,s_PATH
 end
 
 -- Execute a SHARKLE
@@ -627,7 +627,7 @@ function exe_SHARKLE(_SHARKLE)
 	f_DRAW_SHARKLE()
 	FIELDS = {}
 	local n_ERROR_CODE = nil
-	local _ID,_DOMAIN,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
+	local _ID,_SITE,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
 	local b_ME,n_ID = f_RESOLVE_NAME(_ID)
 	if not b_ME then
 		if not n_ID then
@@ -637,7 +637,7 @@ function exe_SHARKLE(_SHARKLE)
 		end
 	end
 	if b_ME then
-		if _DOMAIN == "errors" then
+		if _SITE == "errors" then
 			local n_ERRORS = 0
 			if LOCALS["ERRORS"] then
 				for k,v in pairs(LOCALS["ERRORS"]) do
@@ -682,7 +682,7 @@ function exe_SHARKLE(_SHARKLE)
 				print(LOCALS["SHARKLE_LAST"])
 				term.redirect(tm_SHARK)
 			end
-		elseif _DOMAIN == "not-found" then
+		elseif _SITE == "not-found" then
 			term.redirect(tm_PAGE)
 			term.setTextColor(colors.red)
 			term.setBackgroundColor(colors.white)
@@ -701,7 +701,7 @@ function exe_SHARKLE(_SHARKLE)
 			term.setCursorPos(2,10)
 			print("contact the host's administrator.")
 			term.redirect(tm_SHARK)
-		elseif _DOMAIN == "about" then
+		elseif _SITE == "about" then
 			term.redirect(tm_PAGE)
 			term.setTextColor(colors.black)
 			term.setBackgroundColor(colors.white)
@@ -728,8 +728,8 @@ function exe_SHARKLE(_SHARKLE)
 			term.setTextColor(colors.black)
 			term.redirect(tm_SHARK)
 		else
-			if fs.exists(SHARK_PATH_SITES.._DOMAIN) and fs.isDir(SHARK_PATH_SITES.._DOMAIN) then
-				_FILEPATH = SHARK_PATH_SITES.._DOMAIN.."/pages/".._PATH..".".._EXT
+			if fs.exists(SHARK_PATH_SITES.._SITE) and fs.isDir(SHARK_PATH_SITES.._SITE) then
+				_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH..".".._EXT
 				if fs.exists(_FILEPATH) then
 					local _f = fs.open(_FILEPATH,"r")
 					local _c = _f.readAll()
