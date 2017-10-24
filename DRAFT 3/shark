@@ -118,6 +118,8 @@ local COMMANDS = {
 	},
 	["clearLine"] = {
 		FUNCTION = function()
+			local _c = colors[t[1]] or term.getBackgroundColor()
+			term.setBackgroundColor(_c)
 			term.clearLine()
 			return true
 		end
