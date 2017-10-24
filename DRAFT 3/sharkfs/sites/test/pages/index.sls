@@ -1,5 +1,6 @@
+<clear[white]>
 <color[white,green]>
-	<button[5,5,7,4,local://test/]>
+	<button[5,2,7,4,local://test/]>
 		what?
 		<color[blue]>
 			test.
@@ -7,15 +8,7 @@
 	</button>
 </color>
 <color[white,blue]>
-	<button[20,5,local://test/]>
-		test!
+	<button[20,2,local://test/]>
+		boo!
 	</button>
 </color>
-<cursor[20,12]>
-	<color[red,white]>
-		<write>
-			hey!
-			what's up?
-		</write>
-	</color>
-</cursor>
