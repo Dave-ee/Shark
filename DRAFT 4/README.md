@@ -9,3 +9,5 @@ PLANNED
 - Sharkle Navigation
   - *COMPLETE*
 - Settings
+- Secure local pages with MD5
+  - *COMPLETE*
