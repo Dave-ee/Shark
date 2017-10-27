@@ -1,0 +1,29 @@
+-- SHARK-RUN
+local t_ARGS = { ... }
+local LOCALS = t_ARGS[1]
+local COLOURS = t_ARGS[2]
+local SHARK_VERSION = t_ARGS[3]
+term.setTextColor(COLOURS["PAGE"].fg)
+term.setBackgroundColor(COLOURS["PAGE"].bg)
+term.clear()
+term.setCursorPos(2,2)
+print("About")
+term.setCursorPos(2,5)
+print("Shark - created by Dave-ee Jones")
+term.setCursorPos(2,6)
+term.setTextColor(COLOURS["PAGE"].fg2)
+print(SHARK_VERSION)
+term.setTextColor(COLOURS["PAGE"].fg)
+term.setCursorPos(2,7)
+print("Shark is a web browser made for CC.")
+term.setCursorPos(2,9)
+print("Computer details:")
+term.setCursorPos(2,10)
+write("ID: ")
+term.setTextColor(COLOURS["PAGE"].fg2)
+print(os.getComputerID())
+term.setTextColor(COLOURS["PAGE"].fg)
+term.setCursorPos(2,11)
+write("Label: ")
+term.setTextColor(COLOURS["PAGE"].fg2)
+print(os.getComputerLabel())

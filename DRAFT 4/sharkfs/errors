@@ -1,0 +1,36 @@
+-- SHARK-RUN
+local t_ARGS = { ... }
+local LOCALS = t_ARGS[1]
+local COLOURS = t_ARGS[2]
+local n_ERRORS = t_ARGS[3]
+if n_ERRORS > 0 then	
+	term.setTextColor(COLOURS["PAGE"].error)
+	term.setBackgroundColor(COLOURS["PAGE"].bg)
+	term.clear()
+	term.setCursorPos(2,2)
+	print("Uh Oh! There have been errors!")
+	term.setTextColor(COLOURS["PAGE"].fg)
+	term.setCursorPos(2,4)
+	print("Information:")
+	term.setTextColor(COLOURS["PAGE"].fg2)
+	term.setCursorPos(2,5)
+	print("Sharkle: "..LOCALS["SHARKLE_LAST"])
+	term.setCursorPos(2,6)
+	write("Errors: "..n_ERRORS)
+	term.setTextColor(COLOURS["PAGE"].fg)
+	term.setCursorPos(2,8)
+	print("Errors have been logged.")
+	term.setCursorPos(2,9)
+	print("Please contact the Administrator of the site!")
+else
+	term.setTextColor(COLOURS["PAGE"].fg)
+	term.setBackgroundColor(COLOURS["PAGE"].bg)
+	term.clear()
+	term.setCursorPos(2,2)
+	print("All's well!")
+	term.setTextColor(COLOURS["PAGE"].fg2)
+	term.setCursorPos(2,4)
+	print("There were no errors found on:")
+	term.setCursorPos(2,5)
+	print(LOCALS["SHARKLE_LAST"])
+end

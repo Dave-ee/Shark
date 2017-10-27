@@ -1,0 +1,20 @@
+-- SHARK-RUN
+local t_ARGS = { ... }
+local LOCALS = t_ARGS[1]
+local COLOURS = t_ARGS[2]
+term.setTextColor(COLOURS["PAGE"].error)
+term.setBackgroundColor(COLOURS["PAGE"].bg)
+term.clear()
+term.setCursorPos(2,2)
+print("Uh Oh! There was a problem!")
+term.setTextColor(COLOURS["PAGE"].fg)
+term.setCursorPos(2,5)
+print("The following page could not be found:")
+term.setTextColor(COLOURS["PAGE"].fg2)
+term.setCursorPos(2,6)
+print(LOCALS["SHARKLE_LAST"])
+term.setTextColor(COLOURS["PAGE"].fg)
+term.setCursorPos(2,9)
+print("Please check the Sharkle. If problem persists,")
+term.setCursorPos(2,10)
+print("contact the host's administrator.")
