@@ -2,8 +2,9 @@ DRAFT 4
 
 PLANNED
 - Site Hosting/Requesting (Server/Client system)
-  - *IN PROGRESS*
+  - *COMPLETE*
 - Home Page
+  - *IN PROGRESS*
 - Menu
   - *COMPLETE*
 - Sharkle Navigation
