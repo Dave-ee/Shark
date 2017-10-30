@@ -17,10 +17,9 @@ if n_ERRORS > 0 then
 	print("Sharkle: "..LOCALS["SHARKLE_LAST"])
 	term.setCursorPos(2,6)
 	write("Errors: "..n_ERRORS)
-	term.setTextColor(COLOURS["PAGE"].fg)
-	term.setCursorPos(2,8)
+	term.setCursorPos(2,14)
 	print("Errors have been logged.")
-	term.setCursorPos(2,9)
+	term.setCursorPos(2,15)
 	print("Please contact the Administrator of the site!")
 else
 	term.setTextColor(COLOURS["PAGE"].fg)

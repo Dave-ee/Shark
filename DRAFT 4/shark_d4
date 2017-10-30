@@ -26,7 +26,7 @@
 			- 10: Shark Page corrupted
 --]]
 
-local SHARKLE = "local://test/"
+local SHARKLE = "local://home/"
 
 local SHARK_VERSION = "DRAFT 4"
 local SHARK_RUNNING = true
@@ -52,10 +52,11 @@ local MD5 = dofile(SHARK_PATH_MD5)
 local FIELDS = {}
 
 local CHECKSUMS = {
-	["about"] = "98241f4166c5a3466066f521025d0e47",
-	["not-found"] = "688681619d48da6d38fc6f775cc03054",
-	["errors"] = "c7b3128011d84f7399f6269130b89e87",
-	["home"] = ""
+	["errors"] = "f12ee94ca17f2203c53d6eedb128cea4",
+	["about"] = "e9ade7b9b81cad7305749df01589a536",
+	["not-found"] = "2ef0e9f3eab069404abd34064b4f58f5",
+	["home"] = "fa99ea6cc88d2e0b5e5cb3658327e1e8",
+	["help"] = "4f851d445cd5d3db2b76f95d5503f28f"
 }
 
 local LOCALS = {
@@ -64,6 +65,8 @@ local LOCALS = {
 	["ERRORS"] = {},
 	["SHARKLE_LAST"] = SHARKLE,
 	["SHARKLE_INPUT"] = false,
+	["SHARKLE_HOME"] = "local://home/",
+	["SHARKLE_HELP"] = "local://help/",
 	["SHARKLE_ABOUT"] = "local://about/",
 	["SHARKLE_ERRORS"] = "local://errors/",
 	["SHARKLE_CORRUPT"] = "local://corrupt/",
@@ -89,6 +92,7 @@ local COLOURS = {
 		bg = colors.white,
 		fg = colors.black,
 		fg2 = colors.gray,
+		header = colors.cyan,
 		error = colors.red
 	},
 	["MENU"] = {
@@ -407,6 +411,8 @@ local function f_DRAW_MENU()
 	print(" History ")
 	term.setCursorPos(2,9)
 	print(" Options ")
+	term.setCursorPos(2,10)
+	print(" Help Me ")
 	term.setCursorPos(2,13)
 	write("Errors: ")
 	local n_ERRORS = 0
@@ -565,8 +571,12 @@ function f_HANDLE_EVENT(_EVENT)
 					return f_CHANGE_SHARKLE(LOCALS["SHARKLE_HISTORY"])
 				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 12 then
 					return f_CHANGE_SHARKLE(LOCALS["SHARKLE_SETTINGS"])
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 13 then
+					return f_CHANGE_SHARKLE(LOCALS["SHARKLE_HELP"])
 				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 16 then
 					return f_CHANGE_SHARKLE(LOCALS["SHARKLE_ERRORS"])
+				elseif _EVENT[3] >= tm_WIDTH-9 and _EVENT[3] <= tm_WIDTH-1 and _EVENT[4] >= 5 and _EVENT[4] <= 7 then
+					return f_CHANGE_SHARKLE(LOCALS["SHARKLE_HOME"])
 				elseif _EVENT[3] >= tm_WIDTH-9 and _EVENT[3] <= tm_WIDTH-1 and _EVENT[4] == 18 then
 					SHARK_RUNNING = false
 					return true
