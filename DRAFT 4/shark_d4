@@ -332,26 +332,29 @@ local function f_RESOLVE_NAME(s)
 	local b_SELF = false
 	if not tonumber(s) then
 		if s == "local" or s == "localhost" then
-			_SELF = true
-			_ID = os.getComputerID()
+			b_SELF = true
+			n_ID = os.getComputerID()
 		else
 			local _f = fs.open(SHARK_PATH_DNS,"r")
 			local t_DNS = textutils.unseralize(_f.readAll())
-			if t_DNS[s] then
-				_ID = t_DNS[s]
-				if _ID == os.getComputerID() then
-					_SELF = true
+			if t_DNS[s] and tonumber(t_DNS[s]) then
+				n_ID = tonumber(t_DNS[s])
+				if n_ID == os.getComputerID() then
+					b_SELF = true
 				end
 			else
-				_ID = false
+				n_ID = false
 			end
 		end
 	else
 		if tonumber(s) == os.getComputerID() then
-			_SELF = true
+			b_SELF = true
+			n_ID = os.getComputerID()
+		else
+			n_ID = tonumber(s)
 		end
 	end
-	return _SELF,_ID
+	return b_SELF,n_ID
 end
 
 -- Draw Sharkle
@@ -594,12 +597,10 @@ function f_HANDLE_EVENT(_EVENT)
 			end
 		end
 	elseif _EVENT[1] == "rednet_message" then
-		print(_EVENT[3])
-		sleep(5)
 		if _EVENT[3].prot and _EVENT[3].prot == "SHARK" then
 			if fs.exists(SHARK_PATH_SITES.._EVENT[3].site) and fs.isDir(SHARK_PATH_SITES.._EVENT[3].site) then
-				if fs.exists(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path.._EVENT[3].ext) then
-					local _f = fs.open(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path.._EVENT[3].ext,"r")
+				if fs.exists(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path..".".._EVENT[3].ext) then
+					local _f = fs.open(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path..".".._EVENT[3].ext,"r")
 					local _c = _f.readAll()
 					_f.close()
 					rednet.send(_EVENT[2],_c)
@@ -736,44 +737,33 @@ function exe_SHARKLE(_SHARKLE)
 	local _ID,_SITE,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
 	local b_ME,n_ID = f_RESOLVE_NAME(_ID)
 	if not b_ME then
-		if not n_ID then
-			n_ERROR_CODE = 6
-		else
-			local t = {
-				prot = "SHARK",
-				site = _SITE,
-				path = _PATH,
-				ext = _EXT
-			}
-			rednet.send(n_ID,t)
-			local b_WAIT = true
-			local b_FOUND = false
-			local n_TRIES = 0
-			while b_WAIT do
-				n_TRIES = 1
-				local _EVENT = { os.pullEvent() }
-				if _EVENT[1] == "rednet_message" then
-					if _EVENT[2] == n_ID then
-						if _EVENT[3] ~= "SHARK_FAIL" then
-							LOCALS["ERRORS"] = exe_SLS(_EVENT[3])
-							for k,v in pairs(LOCALS["ERRORS"]) do
-								f_LOG("PAGE_ERROR",v.ERROR,v.LINE)
-							end
-							b_FOUND = true
-							b_WAIT = false
-						else
-							n_ERROR_CODE = 3
+		local t = {
+			prot = "SHARK",
+			site = _SITE,
+			path = _PATH,
+			ext = _EXT
+		}
+		rednet.send(n_ID,t)
+		local b_WAIT = true
+		local b_FOUND = false
+		while b_WAIT do
+			local _EVENT = { os.pullEvent() }
+			if _EVENT[1] == "rednet_message" then
+				if _EVENT[2] == n_ID then
+					if _EVENT[3] == "SHARK_FAIL" then
+						n_ERROR_CODE = 3
+						b_WAIT = false
+					else
+						LOCALS["ERRORS"] = exe_SLS(_EVENT[3])
+						for k,v in pairs(LOCALS["ERRORS"]) do
+							f_LOG("PAGE_ERROR",v.ERROR,v.LINE)
 						end
+						b_FOUND = true
+						b_WAIT = false
 					end
-				else
-					f_HANDLE_EVENT(_EVENT)
 				end
-				if n_TRIES == 3 then
-					b_WAIT = false
-				end
-			end
-			if not b_FOUND then
-				n_ERROR_CODE = 3
+			else
+				f_HANDLE_EVENT(_EVENT)
 			end
 		end
 	else
