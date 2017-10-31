@@ -1,9 +1,0 @@
--- SHARK-RUN
-local t_ARGS = { ... }
-local LOCALS = t_ARGS[1]
-local COLOURS = t_ARGS[2]
-term.setTextColor(COLOURS["PAGE"].header)
-term.setBackgroundColor(COLOURS["PAGE"].bg)
-term.clear()
-term.setCursorPos(2,2)
-print("Welcome to Shark!")
