@@ -1,0 +1,932 @@
+--[[
+
+	Shark
+	Initial Release - v1.0
+
+	PLAN for v1:
+		- Pages
+			- History
+				- Reads the history file and prints on screen
+			- Error
+				- Handles all error codes
+					- 000: Shark corrupt
+					- 100: Site not found
+					- 101: Page not found
+					- 102: Hostname not found
+					- 103: Sharkle is empty
+					- 200: Host requires cert. from client
+					- 201: Host denied cert. from client
+			- File System
+				- Better file system
+					- sharkfs/
+						- /config/
+						- /local/
+						- /sites/
+						- /history
+						- /log
+			- HRF
+				- Host Resolution File
+
+--]]
+
+local SHARKLE = "local://home/"
+
+local SHARK_VERSION = "VERSION 1.0"
+local SHARK_PATH = "/sharkfs/"
+local SHARK_PATH_SITES = SHARK_PATH.."sites/"
+local SHARK_PATH_LOCAL = SHARK_PATH.."local/"
+local SHARK_PATH_CONFIG = SHARK_PATH.."config/"
+
+local SHARK_RUNNING = true
+
+local SHARK_FILES = {
+	["MD5"] = {
+		path = SHARK_PATH_CONFIG.."md5"
+	},
+	["HRF"] = {
+		path = SHARK_PATH_CONFIG.."hrf"
+	},
+	["LOG"] = {
+		path = SHARK_PATH.."log"
+	},
+	["HISTORY"] = {
+		path = SHARK_PATH.."history"
+	}
+}
+
+local SHARK_LOCAL = {
+	["errors"] = {
+		sum = "f12ee94ca17f2203c53d6eedb128cea4",
+		sharkle = "local://errors/",
+		path = SHARK_PATH_LOCAL.."errors"
+	},
+	["about"] = {
+		sum = "1188b613f3e9df8a79f6a26c483f738f",
+		sharkle = "local://about/",
+		path = SHARK_PATH_LOCAL.."about"
+	},
+	["home"] = {
+		sum = "fa99ea6cc88d2e0b5e5cb3658327e1e8",
+		sharkle = "local://home/",
+		path = SHARK_PATH_LOCAL.."home"
+	},
+	["help"] = {
+		sum = "4f851d445cd5d3db2b76f95d5503f28f",
+		sharkle = "local://help/",
+		path = SHARK_PATH_LOCAL.."help"
+	},
+	["options"] = {
+		sum = "d41d8cd98f00b204e9800998ecf8427e",
+		sharkle = "local://options/",
+		path = SHARK_PATH_LOCAL.."options"
+	},
+	["error"] = {
+		sum = "",
+		sharkle = "local://error/",
+		path = ""
+	}
+}
+
+local tm_WIDTH, tm_HEIGHT = term.getSize()
+local tm_DEFAULT = term.current()
+local tm_BAR = window.create(tm_DEFAULT,1,1,tm_WIDTH,3,true)
+local tm_PAGE = window.create(tm_DEFAULT,1,4,tm_WIDTH,tm_HEIGHT-3,true)
+local tm_MENU = window.create(tm_DEFAULT,tm_WIDTH-10,4,11,tm_HEIGHT,true)
+
+local MD5 = dofile(SHARK_FILES["MD5"].path)
+
+local FIELDS = {}
+
+local GLOBALS = {
+	["COMMAND"] = nil,
+	["COMMAND_LAST"] = nil,
+	["ERRORS"] = {},
+	["MENU"] = false,
+	["INPUT"] = false
+}
+
+local COLOURS = {
+	["BAR"] = {
+		bg = colors.cyan,
+		fg = colors.gray
+	},
+	["SHARKLE"] = {
+		bg = colors.lightGray,
+		fg = colors.white,
+		clear = colors.red,
+		enter = colors.lime
+	},
+	["PAGE"] = {
+		bg = colors.white,
+		fg = colors.black,
+		fg2 = colors.gray,
+		header = colors.cyan,
+		error = colors.red
+	},
+	["MENU"] = {
+		bg = colors.cyan,
+		fg = colors.white,
+		fg2 = colors.gray,
+		exit = colors.red
+	}
+}
+
+local COMMAND_STORAGE = {
+	["color"] = {
+		STACK_TC = { term.getTextColor() },
+		STACK_BC = { term.getBackgroundColor() }
+	},
+	["cursor"] = {
+		STACK_X = { term.getCursorPos() },
+		STACK_Y = { select(2,term.getCursorPos()) }
+	},
+	["print"] = {
+		SWITCH = false,
+		X = 0,
+		Y = 0
+	},
+	["write"] = {
+		SWITCH = false,
+		X = 0,
+		Y = 0
+	},
+	["button"] = {
+		SWITCH = false,
+		OLD_X = 0,
+		OLD_Y = 0,
+		X = 0,
+		Y = 0,
+		W = 0,
+		H = 0,
+		LINK = "",
+		COUNT = 1
+	}
+}
+
+local COMMANDS = {
+	["clear"] = {
+		FUNCTION = function(t)
+			local _c = colors[t[1]] or term.getBackgroundColor()
+			term.setBackgroundColor(_c)
+			term.clear()
+			return true
+		end
+	},
+	["clearLine"] = {
+		FUNCTION = function()
+			local _c = colors[t[1]] or term.getBackgroundColor()
+			term.setBackgroundColor(_c)
+			term.clearLine()
+			return true
+		end
+	},
+	["print"] = {
+		FUNCTION = function(t)
+			COMMANDS_STORAGE["print"].SWITCH = true
+			local _X,_Y = 0, 0
+			if #t > 0 then
+				_X,_Y = unpack(t)
+				term.setCursorPos(tonumber(_X),tonumber(_Y))
+			end
+			COMMANDS_STORAGE["print"].X,COMMANDS_STORAGE["print"].Y = term.getCursorPos()
+			return true
+		end,
+		CON_FUNCTION = function(s)
+			local _X,_Y = term.getCursorPos()
+			term.setCursorPos(COMMANDS_STORAGE["print"].X,_Y)
+			print(s)
+			return true
+		end,
+		INV_FUNCTION = function()
+			COMMANDS_STORAGE["print"].SWITCH = false
+			COMMANDS_STORAGE["print"].X = 0
+			COMMANDS_STORAGE["print"].Y = 0
+			return true
+		end
+	},
+	["write"] = {
+		FUNCTION = function(t)
+			local _X,_Y = 0, 0
+			if #t > 0 then
+				_X,_Y = unpack(t)
+				term.setCursorPos(tonumber(_X),tonumber(_Y))
+			end
+			COMMANDS_STORAGE["write"].X,COMMANDS_STORAGE["write"].Y = term.getCursorPos()
+			return true
+		end,
+		CON_FUNCTION = function(s)
+			write(s)
+			return true
+		end,
+		INV_FUNCTION = function()
+			COMMANDS_STORAGE["write"].SWITCH = false
+			COMMANDS_STORAGE["write"].X = 0
+			COMMANDS_STORAGE["write"].Y = 0
+			return true
+		end
+	},
+	["button"] = {
+		FUNCTION = function(t)
+			COMMANDS_STORAGE["button"].SWITCH = true
+			local _X,_Y,_W,_H,_LINK = unpack(t)
+			COMMANDS_STORAGE["button"].X = tonumber(_X)
+			COMMANDS_STORAGE["button"].Y = tonumber(_Y)
+			if tonumber(_W) then
+				COMMANDS_STORAGE["button"].W = tonumber(_W)
+				COMMANDS_STORAGE["button"].H = tonumber(_H)
+				COMMANDS_STORAGE["button"].LINK = _LINK
+				paintutils.drawFilledBox(COMMANDS_STORAGE["button"].X,COMMANDS_STORAGE["button"].Y,COMMANDS_STORAGE["button"].X+COMMANDS_STORAGE["button"].W-1,COMMANDS_STORAGE["button"].Y+COMMANDS_STORAGE["button"].H-1,term.getBackgroundColor())
+			else
+				COMMANDS_STORAGE["button"].W = 0
+				COMMANDS_STORAGE["button"].H = 0
+				COMMANDS_STORAGE["button"].LINK = _W
+			end
+			COMMANDS_STORAGE["button"].OLD_X,COMMANDS_STORAGE["button"].OLD_Y = term.getCursorPos()
+			return true
+		end,
+		CON_FUNCTION = function(s)
+			local _X,_Y = COMMANDS_STORAGE["button"].X,COMMANDS_STORAGE["button"].Y
+			if COMMANDS_STORAGE["button"].W == 0 then
+				COMMANDS_STORAGE["button"].W = #s+2
+				local _W = COMMANDS_STORAGE["button"].W
+				term.setCursorPos(_X,_Y)
+				print(string.rep(" ",_W))
+				term.setCursorPos(_X,_Y+1)
+				print(" "..s.." ")
+				term.setCursorPos(_X,_Y+2)
+				print(string.rep(" ",_W))
+			else
+				term.setCursorPos(_X+1,_Y+COMMANDS_STORAGE["button"].COUNT)
+				print(s)
+				COMMANDS_STORAGE["button"].COUNT = COMMANDS_STORAGE["button"].COUNT + 1
+			end
+			return true
+		end,
+		INV_FUNCTION = function()
+			local _T = {
+				X = COMMANDS_STORAGE["button"].X,
+				Y = COMMANDS_STORAGE["button"].Y,
+				XE = COMMANDS_STORAGE["button"].X + COMMANDS_STORAGE["button"].W - 1,
+				YE = COMMANDS_STORAGE["button"].Y + COMMANDS_STORAGE["button"].H - 1,
+				FUNCTION = function() 
+					SHARKLE = COMMANDS_STORAGE["button"].LINK 
+				end
+			}
+			table.insert(FIELDS,_T)
+			COMMANDS_STORAGE["button"].SWITCH = false
+			COMMANDS_STORAGE["button"].OLD_X = 0
+			COMMANDS_STORAGE["button"].OLD_Y = 0
+			COMMANDS_STORAGE["button"].X = 0
+			COMMANDS_STORAGE["button"].Y = 0
+			COMMANDS_STORAGE["button"].W = 0
+			COMMANDS_STORAGE["button"].H = 0
+			COMMANDS_STORAGE["button"].LINK = ""
+			COMMANDS_STORAGE["button"].COUNT = 1
+			return true
+		end
+	},
+	["color"] = {
+		FUNCTION = function(t)
+			if #t > 1 then
+				COMMANDS_STORAGE["color"].STACK_TC[#COMMANDS_STORAGE["color"].STACK_TC + 1] = colors[t[1]]
+				COMMANDS_STORAGE["color"].STACK_BC[#COMMANDS_STORAGE["color"].STACK_BC + 1] = colors[t[2]]
+				term.setTextColor(colors[t[1]])
+				term.setBackgroundColor(colors[t[2]])
+			else
+				COMMANDS_STORAGE["color"].STACK_TC[#COMMANDS_STORAGE["color"].STACK_TC + 1] = colors[t[1]]
+				COMMANDS_STORAGE["color"].STACK_BC[#COMMANDS_STORAGE["color"].STACK_BC + 1] = term.getBackgroundColor()
+				term.setTextColor(colors[t[1]])
+			end
+			return true
+		end,
+		INV_FUNCTION = function()
+			if #COMMANDS_STORAGE["color"].STACK_TC > 1 then
+				COMMANDS_STORAGE["color"].STACK_TC[#COMMANDS_STORAGE["color"].STACK_TC] = nil
+				COMMANDS_STORAGE["color"].STACK_BC[#COMMANDS_STORAGE["color"].STACK_BC] = nil
+				term.setTextColor(COMMANDS_STORAGE["color"].STACK_TC[#COMMANDS_STORAGE["color"].STACK_TC])
+				term.setBackgroundColor(COMMANDS_STORAGE["color"].STACK_BC[#COMMANDS_STORAGE["color"].STACK_BC])
+			end
+			return true
+		end
+	},
+	["cursor"] = {
+		FUNCTION = function(t)
+			local _X,_Y = unpack(t)
+			COMMANDS_STORAGE["cursor"].STACK_X[#COMMANDS_STORAGE["cursor"].STACK_X + 1] = tonumber(_X)
+			COMMANDS_STORAGE["cursor"].STACK_Y[#COMMANDS_STORAGE["cursor"].STACK_Y + 1] = tonumber(_Y)
+			term.setCursorPos(tonumber(_X),tonumber(_Y))
+			return true
+		end,
+		INV_FUNCTION = function()
+			COMMANDS_STORAGE["cursor"].STACK_X[#COMMANDS_STORAGE["cursor"].STACK_X] = nil
+			COMMANDS_STORAGE["cursor"].STACK_Y[#COMMANDS_STORAGE["cursor"].STACK_Y] = nil
+			term.setCursorPos(COMMANDS_STORAGE["cursor"].STACK_X[#COMMANDS_STORAGE["cursor"].STACK_X],COMMANDS_STORAGE["cursor"].STACK_Y[#COMMANDS_STORAGE["cursor"].STACK_Y])
+			return true
+		end
+	},
+}
+
+-- Log error to file
+-- Arguments: TYPE (String), ERROR (String), LINE (Number)
+-- Returns: SUCCESS (True/False)
+local function f_LOG(_T,_S,_L)
+	local s_TIME = textutils.formatTime(os.time(),true)
+	if _T == "ERROR" then
+		local _f = fs.open(SHARK_FILES["LOG"].path,"a")
+		_f.writeLine("["..GLOBALS["SHARKLE_LAST"].."]:".._L..": ".._S)
+		_f.close()
+		return true
+	elseif _T == "BIGERROR" then
+		term.redirect(tm_DEFAULT)
+		term.clear()
+		term.setCursorPos(1,1)
+		print(_S)
+		local _f = fs.open(SHARK_FILES["LOG"].path,"a")
+		_f.writeLine("--[[ SHARK BROKE HERE ]]--")
+		_f.writeLine("Time: "..s_TIME)
+		_f.writeLine("Error: ".._S)
+		_f.writeLine("--[[ END SHARK BROKE HERE ]]--")
+		_f.close()
+		return true
+	elseif _T == "HISTORY" then
+		local _f = fs.open(SHARK_FILES["HISTORY"].path,"a")
+		_f.writeLine("["..s_TIME.."] "..SHARKLE)
+		_f.close()
+		return true
+	end
+	return false
+end
+
+-- Resolve name from DNS 
+-- Arguments: Name (String)
+-- Returns: Self (True/False), ID (Computer ID)
+local function f_RESOLVE_NAME(s)
+	local b_SELF = false
+	if not tonumber(s) then
+		if s == "local" or s == "localhost" then
+			b_SELF = true
+			n_ID = os.getComputerID()
+		else
+			local _f = fs.open(SHARK_FILES["HRF"].path,"r")
+			local t_HRF = textutils.unseralize(_f.readAll())
+			if t_HRF[s] and tonumber(t_HRF[s]) then
+				n_ID = tonumber(t_HRF[s])
+				if n_ID == os.getComputerID() then
+					b_SELF = true
+				end
+			else
+				n_ID = false
+			end
+		end
+	else
+		if tonumber(s) == os.getComputerID() then
+			b_SELF = true
+			n_ID = os.getComputerID()
+		else
+			n_ID = tonumber(s)
+		end
+	end
+	return b_SELF,n_ID
+end
+
+-- Draw Sharkle
+local function f_DRAW_SHARKLE()
+	local _tm = term.current()
+	term.redirect(tm_BAR)
+	term.setTextColor(COLOURS["SHARKLE"].fg)
+	term.setBackgroundColor(COLOURS["SHARKLE"].bg)
+	term.setCursorPos(2,2)
+	print(string.rep(" ",tm_WIDTH-8))
+	term.setCursorPos(2,2)
+	print(SHARKLE)
+	term.redirect(_tm)
+end
+
+-- Draw Shark Menu
+local function f_DRAW_MENU()
+	local _tm = term.current()
+	term.redirect(tm_BAR)
+	term.setCursorPos(tm_WIDTH-1,2)
+	term.setTextColor(COLOURS["SHARKLE"].fg)
+	term.setBackgroundColor(COLOURS["BAR"].bg)
+	print(string.char(25))
+	term.redirect(tm_MENU)
+	term.setBackgroundColor(COLOURS["MENU"].bg)
+	term.clear()
+	term.setTextColor(COLOURS["MENU"].bg)
+	term.setBackgroundColor(COLOURS["MENU"].fg)
+	term.setCursorPos(2,2)
+	print("         ")
+	term.setCursorPos(2,3)
+	print("  Shark  ")
+	term.setCursorPos(2,4)
+	print("         ")
+	term.setTextColor(COLOURS["MENU"].fg2)
+	term.setBackgroundColor(COLOURS["MENU"].bg)
+	term.setCursorPos(2,6)
+	print("  About  ")
+	term.setCursorPos(2,7)
+	print("  Theme  ")
+	term.setCursorPos(2,8)
+	print(" History ")
+	term.setCursorPos(2,9)
+	print(" Options ")
+	term.setCursorPos(2,10)
+	print(" Help Me ")
+	term.setCursorPos(2,13)
+	write("Errors: ")
+	local n_ERRORS = 0
+	for k,v in pairs(GLOBALS["ERRORS"]) do
+		n_ERRORS = n_ERRORS + 1
+	end
+	if n_ERRORS > 9 then
+		print(">9")
+	else
+		print(n_ERRORS)
+	end
+	term.setTextColor(COLOURS["MENU"].fg)
+	term.setBackgroundColor(COLOURS["MENU"].exit)
+	term.setCursorPos(2,15)
+	print("    "..string.char(248).."    ")
+	term.redirect(_tm)
+end
+
+-- Draw Shark UI
+local function f_DRAW_UI()
+	term.redirect(tm_BAR)
+	term.setTextColor(COLOURS["BAR"].fg)
+	term.setBackgroundColor(COLOURS["BAR"].bg)
+	for i=1,3 do
+		term.setCursorPos(1,i)
+		term.clearLine()
+	end
+	term.setCursorPos(2,2)
+	term.setTextColor(COLOURS["SHARKLE"].fg)
+	term.setBackgroundColor(COLOURS["SHARKLE"].bg)
+	write(string.rep(" ",tm_WIDTH-7))
+	term.setTextColor(COLOURS["SHARKLE"].enter)
+	write(string.char(17))
+	term.setTextColor(COLOURS["SHARKLE"].clear)
+	write(string.char(215))
+	term.setTextColor(COLOURS["SHARKLE"].enter)
+	write(string.char(16))
+	f_DRAW_SHARKLE()
+	term.redirect(tm_PAGE)
+end
+
+-- Toggle the Menu
+-- Arguments: MANUAL (True/False)
+local function f_TOGGLE_MENU(b)
+	if b ~= nil then
+		GLOBALS["MENU"] = b
+	else
+		GLOBALS["MENU"] = not GLOBALS["MENU"]
+	end
+	local _tm = term.current()
+	if GLOBALS["MENU"] then
+		term.redirect(tm_BAR)
+		term.setCursorPos(tm_WIDTH-1,2)
+		term.setTextColor(COLOURS["SHARKLE"].fg)
+		term.setBackgroundColor(COLOURS["BAR"].bg)
+		print(string.char(25))
+		f_DRAW_MENU()
+	else
+		term.redirect(tm_BAR)
+		term.setCursorPos(tm_WIDTH-1,2)
+		term.setTextColor(COLOURS["SHARKLE"].fg)
+		term.setBackgroundColor(COLOURS["BAR"].bg)
+		print(string.char(27))
+		tm_PAGE.redraw()
+		tm_BAR.redraw()
+	end
+	term.redirect(_tm)
+end
+
+-- Change Sharkle
+-- Arguments: Sharkle (String), Error Code (String)
+local function f_CHANGE_SHARKLE(s,_err)
+	f_TOGGLE_MENU(false)
+	GLOBALS["SHARKLE_LAST"] = SHARKLE
+	SHARKLE = s:lower()
+	f_LOG("HISTORY",SHARKLE)
+	if _err then
+		exe_SHARKLE(SHARKLE,_err)
+	else
+		exe_SHARKLE(SHARKLE)
+	end
+end
+
+-- Replaces 'read' function
+-- Arguments: Default (String)
+-- Returns: Input (String)
+local function f_INPUT(s)
+	local _INPUT = s
+	local _X,_Y = term.getCursorPos()
+	term.setCursorPos(_X+#_INPUT,_Y)
+	term.setCursorBlink(true)
+	while GLOBALS["INPUT"] do
+		term.setCursorPos(_X+#_INPUT,_Y)
+		local _EVENT = { os.pullEvent() }
+		if _EVENT[1] == "char" then
+			if #_INPUT < tm_WIDTH-8 then
+				_INPUT = _INPUT.._EVENT[2]
+				write(_EVENT[2])
+			end
+		elseif _EVENT[1] == "key" then
+			if _EVENT[2] == keys.backspace then
+				if #_INPUT > 0 then
+					_INPUT = _INPUT:sub(1,#_INPUT-1)
+					local _X,_Y = term.getCursorPos()
+					term.setCursorPos(_X-1,_Y)
+					write(" ")
+					term.setCursorPos(_X-1,_Y)
+				end
+			elseif _EVENT[2] == keys.enter then
+				GLOBALS["INPUT"] = false
+				term.setCursorBlink(false)
+				f_CHANGE_SHARKLE(_INPUT)
+			end
+		elseif _EVENT[1] == "SHARKLE_GO" then
+			GLOBALS["INPUT"] = false
+			term.setCursorBlink(false)
+			f_CHANGE_SHARKLE(_INPUT)
+		elseif _EVENT[1] == "SHARKLE_STOP" then
+			GLOBALS["INPUT"] = false
+			term.setCursorBlink(false)
+			SHARKLE = _INPUT
+		elseif _EVENT[1] == "mouse_click" then
+			if _EVENT[2] == 1 and _EVENT[3] == tm_WIDTH-4 and _EVENT[4] == 2 then
+				local _tm = term.current()
+				term.redirect(tm_BAR)
+				for i=1,#_INPUT do
+					local _X,_Y = term.getCursorPos()
+					term.setCursorPos(_X-1,_Y)
+					write(" ")
+					term.setCursorPos(_X-1,_Y)
+				end
+				_INPUT = ""
+				term.redirect(_tm)
+			else
+				f_HANDLE_EVENT(_EVENT)
+			end
+		else
+			f_HANDLE_EVENT(_EVENT)
+		end
+	end
+end
+
+-- Handle Sharkle events
+-- Arguments: Event (Table)
+-- Returns: SUCCESS (True/False)
+function f_HANDLE_EVENT(_EVENT)
+	if _EVENT[1] == "mouse_click" then
+		if _EVENT[2] == 1 then
+			if GLOBALS["MENU"] then
+				if _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 9 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["about"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 10 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["themes"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 11 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["history"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 12 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["options"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 13 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["help"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-10 and _EVENT[3] <= tm_WIDTH and _EVENT[4] == 16 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["errors"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-9 and _EVENT[3] <= tm_WIDTH-1 and _EVENT[4] >= 5 and _EVENT[4] <= 7 then
+					f_CHANGE_SHARKLE(SHARK_LOCAL["home"].sharkle)
+				elseif _EVENT[3] >= tm_WIDTH-9 and _EVENT[3] <= tm_WIDTH-1 and _EVENT[4] == 18 then
+					SHARK_RUNNING = false
+				end
+			end
+			if _EVENT[3] >= 2 and _EVENT[3] <= tm_WIDTH-6 and _EVENT[4] == 2 then
+				if not GLOBALS["INPUT"] then
+					GLOBALS["INPUT"] = true
+					local _tm = term.current()
+					term.redirect(tm_BAR)
+					term.setTextColor(COLOURS["SHARKLE"].fg)
+					term.setBackgroundColor(COLOURS["SHARKLE"].bg)
+					term.setCursorPos(2,2)
+					f_INPUT(SHARKLE)
+					term.redirect(_tm)
+				end
+			elseif _EVENT[3] == tm_WIDTH-1 and _EVENT[4] == 2 then
+				f_TOGGLE_MENU()
+			elseif _EVENT[3] == tm_WIDTH-5 and _EVENT[4] == 2 then
+				f_CHANGE_SHARKLE(GLOBALS["SHARKLE_LAST"])
+			elseif _EVENT[3] == tm_WIDTH-3 and _EVENT[4] == 2 then
+				os.queueEvent("SHARKLE_GO")
+			else
+				os.queueEvent("SHARKLE_STOP")
+			end
+		end
+	elseif _EVENT[1] == "rednet_message" then
+		if _EVENT[3].prot and _EVENT[3].prot == "SHARK" then
+			if fs.exists(SHARK_PATH_SITES.._EVENT[3].site) and fs.isDir(SHARK_PATH_SITES.._EVENT[3].site) then
+				if fs.exists(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path..".".._EVENT[3].ext) then
+					local _f = fs.open(SHARK_PATH_SITES.._EVENT[3].site.."/pages/".._EVENT[3].path..".".._EVENT[3].ext,"r")
+					local _c = _f.readAll()
+					_f.close()
+					rednet.send(_EVENT[2],_c)
+				else
+					rednet.send(_EVENT[2],"SHARK_FAIL")
+				end
+			else
+				rednet.send(_EVENT[2],"SHARK_FAIL")
+			end
+		end
+	end
+end
+
+-- Parse and execute an SLL (Shark Language Line)
+-- Arguments: SLL (String)
+-- Returns: SUCCESS (Boolean), ERROR (String)
+-- Called by: exe_SLS
+function exe_SLL(_SLL)
+	if COMMANDS[GLOBALS["COMMAND"]] then
+		if COMMANDS[GLOBALS["COMMAND"]].CON_FUNCTION then
+			GLOBALS["COMMAND_LAST"] = GLOBALS["COMMAND"]
+		end
+	end
+	local n_ARG_START = 0
+	local n_ARG_END = 0
+	local t_ARGS = {}
+	if _SLL:sub(1,1) == "<" then
+		if _SLL:find(">") == nil then
+			return false,"No ending '>' tag"
+		end
+		if _SLL:sub(2,2) == "/" then
+			GLOBALS["COMMAND"] = _SLL:sub(3,_SLL:find(">")-1)
+			if COMMANDS[GLOBALS["COMMAND"]] then
+				GLOBALS["COMMAND_LAST"] = nil
+				return COMMANDS[GLOBALS["COMMAND"]].INV_FUNCTION()
+			else
+				return false,"'"..GLOBALS["COMMAND"].."' command doesn't exist"
+			end
+		else
+			n_ARG_START = _SLL:find("%[")
+			if n_ARG_START then
+				n_ARG_END = _SLL:find("%]")
+				if n_ARG_END then
+					local _ARGS = _SLL:match("%[(.-)%]")
+					for _ARG in _ARGS:gmatch("[^,]+") do
+						t_ARGS[#t_ARGS + 1] = _ARG:gsub("'\"", "")
+					end
+					GLOBALS["COMMAND"] = _SLL:sub(2,n_ARG_START-1)
+				else
+					return false,"No ending ']' for arguments"
+				end
+			else
+				GLOBALS["COMMAND"] = _SLL:sub(2,_SLL:find(">")-1)
+			end
+			if COMMANDS[GLOBALS["COMMAND"]] then
+				return COMMANDS[GLOBALS["COMMAND"]].FUNCTION(t_ARGS)
+			else
+				return false,"'"..GLOBALS["COMMAND"].."' command doesn't exist"
+			end
+		end
+	else
+		if not GLOBALS["COMMAND_LAST"] then
+			return false,"Invalid line format"
+		else
+			return COMMANDS[GLOBALS["COMMAND_LAST"]].CON_FUNCTION(_SLL)
+		end
+	end
+end
+
+-- Parse and execute an SLS (Shark Language Sheet)
+-- Arguments: SLS (String)
+-- Returns: Errors (Table)
+-- Called by: exe_SHARKLE
+function exe_SLS(_SLS)
+	local t_ERRORS = {}
+	local n_LINE = 1
+	term.redirect(tm_PAGE)
+	for _SLL in _SLS:gmatch("([^\n]*)\n?") do
+		local _STATUS,_ERROR = exe_SLL(_SLL:match("^%s*(.-)%s*$"))
+		if not _STATUS then
+			t_ERRORS[n_LINE] = {
+				ERROR = _ERROR,
+				LINE = n_LINE
+			}
+		end
+		n_LINE = n_LINE + 1
+	end
+	term.redirect(tm_BAR)
+	return t_ERRORS
+end
+
+-- Parse a Sharkle
+-- Arguments: SHARKLE (String), Bit (String)
+-- Returns: ID, SITE, EXTENSION, PATH
+function prs_SHARKLE(_SHARKLE,_BIT)
+	if _SHARKLE == nil or _SHARKLE == "" then
+		return nil
+	end
+	local n_ID_START, n_ID_END = _SHARKLE:find("://",1)
+	local s_ID = _SHARKLE:sub(1,n_ID_START-1)
+	local n_SITE_END = _SHARKLE:find("/",n_ID_END+1)
+	local s_SITE = ""
+	if not n_SITE_END then
+		n_SITE_END = #_SHARKLE
+		s_SITE = _SHARKLE:sub(n_ID_END+1,n_SITE_END)
+	else
+		s_SITE = _SHARKLE:sub(n_ID_END+1,n_SITE_END-1)
+	end
+	local s_PATH = ""
+	local s_EXT = ""
+	if #_SHARKLE == n_SITE_END then
+		s_PATH = "index"
+		s_EXT = "sls"
+	else
+		s_PATH = _SHARKLE:sub(n_SITE_END+1)
+		local n_EXT_START = _SHARKLE:find("%.",n_SITE_END+1)
+		if not n_EXT_START then
+			s_EXT = "sls"
+		else
+			s_EXT = _SHARKLE:sub(n_EXT_START+1)
+		end
+	end
+	if not _BIT then
+		return s_ID,s_SITE,s_EXT,s_PATH
+	elseif _BIT == "id" then
+		return s_ID
+	elseif _BIT == "site" then
+		return s_SITE
+	elseif _BIT == "ext" then
+		return s_EXT
+	elseif _BIT == "path" then
+		return s_PATH
+	else
+		return nil
+	end
+end
+
+-- Execute a Sharkle
+-- Arguments: SHARKLE (String), Error Code (String)
+function exe_SHARKLE(_SHARKLE,_ERRORCODE)
+	f_DRAW_SHARKLE()
+	FIELDS = {}
+	local n_ERROR_CODE = ""
+	local _ID,_SITE,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
+	if not _ID and not _SITE and not _EXT and not _PATH then
+		return f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,"103")
+	end
+	local b_ME,n_ID = f_RESOLVE_NAME(_ID)
+	if not b_ME then
+		local t = {
+			prot = "SHARK",
+			site = _SITE,
+			path = _PATH,
+			ext = _EXT
+		}
+		rednet.send(n_ID,t)
+		local b_WAIT = true
+		local b_FOUND = false
+		while b_WAIT do
+			local _EVENT = { os.pullEvent() }
+			if _EVENT[1] == "rednet_message" then
+				if _EVENT[2] == n_ID then
+					if _EVENT[3] == "SHARK_FAIL" then
+						n_ERROR_CODE = "100"
+						b_WAIT = false
+					else
+						GLOBALS["ERRORS"] = exe_SLS(_EVENT[3])
+						for k,v in pairs(GLOBALS["ERRORS"]) do
+							f_LOG("ERROR",v.ERROR,v.LINE)
+						end
+						b_FOUND = true
+						b_WAIT = false
+					end
+				end
+			else
+				f_HANDLE_EVENT(_EVENT)
+			end
+		end
+	else
+		if _SITE == "error" then
+			term.redirect(tm_PAGE)
+			term.setTextColor(COLOURS["PAGE"].error)
+			term.setBackgroundColor(COLOURS["PAGE"].bg)
+			term.clear()
+			term.setCursorPos(2,2)
+			print("Uh Oh! There was an error with code: ".._ERRORCODE)
+			term.setCursorPos(2,4)
+			term.setTextColor(COLOURS["PAGE"].fg)
+			term.setBackgroundColor(COLOURS["PAGE"].bg)
+			if _ERRORCODE == "000" then
+				print("Shark appears to be corrupt!")
+				term.setCursorPos(2,5)
+				print("Please re-install Shark using the installer!")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,9)
+				print("If the problem persists, contact Dave-ee.")
+			elseif _ERRORCODE == "100" then
+				print("The following site could not be found:")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,5)
+				print(GLOBALS["SHARKLE_LAST"])
+				term.setCursorPos(2,14)
+				print("Please check the Sharkle. If problem persists,")
+				term.setCursorPos(2,15)
+				print("contact the host's administrator.")
+			elseif _ERRORCODE == "101" then
+				print("The following page could not be found:")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,5)
+				print(GLOBALS["SHARKLE_LAST"])
+				term.setCursorPos(2,14)
+				print("Please check the Sharkle. If problem persists,")
+				term.setCursorPos(2,15)
+				print("contact the host's administrator.")
+			elseif _ERRORCODE == "102" then
+				print("The following hostname could not be resolved:")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,5)
+				local _HOSTNAME = prs_SHARKLE(GLOBALS["SHARKLE_LAST"],"id")
+				print(_HOSTNAME)
+				term.setCursorPos(2,14)
+				print("Please check your HRF file at:")
+				term.setCursorPos(2,15)
+				print(SHARK_FILES["HRF"].path)
+			elseif _ERRORCODE == "103" then
+				print("There's nothing in the Sharkle bar!")
+			elseif _ERRORCODE == "200" then
+				print("Host requires a certificate for this site.")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,14)
+				print("Please contact the host's administrator for more")
+				term.setCursorPos(2,15)
+				print("information.")
+			elseif _ERRORCODE == "201" then
+				print("Host denied your certificate for this site.")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,14)
+				print("Please contact the host's administrator for more")
+				term.setCursorPos(2,15)
+				print("information.")
+			end
+			term.redirect(tm_BAR)
+		elseif SHARK_LOCAL[_SITE] then
+			term.redirect(tm_PAGE)
+			local _f = fs.open(SHARK_LOCAL[_SITE].path,"r")
+			local _c = _f.readAll()
+			local _SUM = MD5.sumhexa(_c)
+			if _SUM == SHARK_LOCAL[_SITE].sum then
+				local _func = load(_c)
+				if _SITE == "about" then
+					_func(LOCALS,COLOURS,SHARK_VERSION)
+				elseif _SITE == "errors" then
+					local n_ERRORS = 0
+					for k,v in pairs(GLOBALS["ERRORS"]) do
+						n_ERRORS = n_ERRORS + 1
+					end
+					_func(LOCALS,COLOURS,n_ERRORS)
+				else
+					_func(LOCALS,COLOURS)
+				end
+			else
+				n_ERROR_CODE = "000"
+			end
+			_f.close()
+			term.redirect(tm_BAR)
+		elseif fs.exists(SHARK_PATH_SITES.._SITE) and fs.isDir(SHARK_PATH_SITES.._SITE) then
+			_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH..".".._EXT
+			if fs.exists(_FILEPATH) then
+				local _f = fs.open(_FILEPATH,"r")
+				local _c = _f.readAll()
+				_f.close()
+				GLOBALS["ERRORS"] = exe_SLS(_c)
+				for k,v in pairs(GLOBALS["ERRORS"]) do
+					f_LOG("ERROR",v.ERROR,v.LINE)
+				end
+			else
+				n_ERROR_CODE = "101"
+			end
+		else
+			n_ERROR_CODE = "100"
+		end
+	end
+	f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,n_ERROR_CODE)
+end
+
+function start()
+	f_DRAW_UI()
+	f_CHANGE_SHARKLE(SHARKLE)
+	while SHARK_RUNNING do
+		local _EVENT = { os.pullEvent() }
+		f_HANDLE_EVENT(_EVENT)
+	end
+	term.redirect(tm_DEFAULT)
+	term.setTextColor(colors.cyan)
+	term.setBackgroundColor(colors.black)
+	term.clear()
+	term.setCursorPos(1,1)
+	print("Shark has shutdown.")
+end
+
+rednet.open("top")
+
+local _B, _ERROR = pcall(start)
+f_LOG("BIGERROR",_ERROR)
