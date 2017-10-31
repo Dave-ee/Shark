@@ -25,7 +25,7 @@
 						- /history
 						- /log
 			- HRF
-				- Host Resolution File
+				- Host Resolution File (replaces DNS)
 
 --]]
 
@@ -337,10 +337,6 @@ local function f_LOG(_T,_S,_L)
 		_f.close()
 		return true
 	elseif _T == "BIGERROR" then
-		term.redirect(tm_DEFAULT)
-		term.clear()
-		term.setCursorPos(1,1)
-		print(_S)
 		local _f = fs.open(SHARK_FILES["LOG"].path,"a")
 		_f.writeLine("--[[ SHARK BROKE HERE ]]--")
 		_f.writeLine("Time: "..s_TIME)
@@ -768,7 +764,7 @@ end
 function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 	f_DRAW_SHARKLE()
 	FIELDS = {}
-	local n_ERROR_CODE = ""
+	local n_ERROR_CODE = nil
 	local _ID,_SITE,_EXT,_PATH = prs_SHARKLE(_SHARKLE)
 	if not _ID and not _SITE and not _EXT and not _PATH then
 		return f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,"103")
@@ -908,25 +904,33 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			n_ERROR_CODE = "100"
 		end
 	end
-	f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,n_ERROR_CODE)
+	if n_ERROR_CODE then
+		f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,n_ERROR_CODE)
+	end
 end
 
-function start()
+rednet.open("top")
+
+local function f_INIT()
 	f_DRAW_UI()
 	f_CHANGE_SHARKLE(SHARKLE)
 	while SHARK_RUNNING do
 		local _EVENT = { os.pullEvent() }
 		f_HANDLE_EVENT(_EVENT)
 	end
-	term.redirect(tm_DEFAULT)
-	term.setTextColor(colors.cyan)
-	term.setBackgroundColor(colors.black)
-	term.clear()
-	term.setCursorPos(1,1)
-	print("Shark has shutdown.")
 end
 
-rednet.open("top")
-
-local _B, _ERROR = pcall(start)
-f_LOG("BIGERROR",_ERROR)
+local b_SUCCESS,s_ERROR = pcall(f_INIT)
+term.redirect(tm_DEFAULT)
+term.setTextColor(colors.cyan)
+term.setBackgroundColor(colors.black)
+term.clear()
+term.setCursorPos(1,1)
+if b_SUCCESS then
+	print("Shark has shutdown.")
+else
+	print("Uh Oh! Shark has crashed!")
+	print("Error: "..s_ERROR)
+	f_LOG("BIGERROR",s_ERROR)
+	print("Error has been logged.")
+end
