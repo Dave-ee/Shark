@@ -331,6 +331,22 @@ local function f_LOG(_T,_S,_L)
 	return false
 end
 
+-- This function checks the HRF files for entries with the ID of this computer
+-- And returns a table with all hostnames, later used for rednet.host()
+function f_OWN_HOSTNAMES()
+	local handle = fs.open(SHARK_FILES["HRF"].path,"r")
+	local t_HRF = textutils.unserialize(handle.readAll())
+	handle.close()
+	local own = os.getComputerID()
+	local res = {}
+	for k,v in pairs(t_HRF) do
+		if v == own then
+			res[#res + 1] = k
+		end
+	end
+	return res
+end
+
 -- Resolve name from DNS 
 -- Arguments: Name (String)
 -- Returns: Self (True/False), ID (Computer ID)
@@ -342,7 +358,7 @@ local function f_RESOLVE_NAME(s)
 			n_ID = os.getComputerID()
 		else
 			local _f = fs.open(SHARK_FILES["HRF"].path,"r")
-			local t_HRF = textutils.unseralize(_f.readAll())
+			local t_HRF = textutils.unserialize(_f.readAll())
 			if t_HRF[s] and tonumber(t_HRF[s]) then
 				n_ID = tonumber(t_HRF[s])
 				if n_ID == os.getComputerID() then
@@ -358,6 +374,15 @@ local function f_RESOLVE_NAME(s)
 			n_ID = os.getComputerID()
 		else
 			n_ID = tonumber(s)
+		end
+	end
+	if not n_ID then --We haven't found the ID in our local table, resolve it via rednet
+		local id = rednet.lookup("shark", s)
+		if id then
+			b_SELF = false --If we would be hosting this ourself the ID should've been found in the local file
+			n_ID = id
+		else
+			n_ID = false
 		end
 	end
 	return b_SELF,n_ID
@@ -900,6 +925,16 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 end
 
 local function f_INIT()
+	--Initialize rednet hosting
+	for _,v in pairs(f_OWN_HOSTNAMES()) do
+		local ok, err = pcall(function()
+			rednet.host("shark", v)
+		end)
+		if not ok then
+			local error = err:match(".+:%d+:(.*)")
+			f_LOG("ERROR", error, 1)
+		end
+	end
 	f_DRAW_UI()
 	f_CHANGE_SHARKLE(SHARKLE)
 	while SHARK_RUNNING do
