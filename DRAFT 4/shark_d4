@@ -866,8 +866,11 @@ function exe_SHARKLE(_SHARKLE)
 	end
 end
 
-rednet.open("top")
-
+for _,v in pairs(peripheral.getNames()) do
+	if peripheral.getType(v) == "modem" and peripheral.call(v, "isWireless") then
+		rednet.open(v)
+	end
+end
 --Initialize rednet hosting
 for _,v in pairs(f_OWN_HOSTNAMES()) do
 	local ok, err = pcall(function()
