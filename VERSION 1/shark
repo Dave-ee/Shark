@@ -358,7 +358,7 @@ local function f_RESOLVE_NAME(s)
 			n_ID = os.getComputerID()
 		else
 			local _f = fs.open(SHARK_FILES["HRF"].path,"r")
-			local t_HRF = textutils.unseralize(_f.readAll())
+			local t_HRF = textutils.unserialize(_f.readAll())
 			if t_HRF[s] and tonumber(t_HRF[s]) then
 				n_ID = tonumber(t_HRF[s])
 				if n_ID == os.getComputerID() then
