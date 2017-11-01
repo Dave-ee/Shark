@@ -80,7 +80,8 @@ local GLOBALS = {
 	["COMMAND_LAST"] = nil,
 	["ERRORS"] = {},
 	["MENU"] = false,
-	["INPUT"] = false
+	["INPUT"] = false,
+	["SHARKLE_LAST"] = SHARKLE
 }
 
 local COLOURS = {
@@ -853,15 +854,15 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			if _SUM == SHARK_LOCAL[_SITE].sum then
 				local _func = load(_c)
 				if _SITE == "about" then
-					_func(LOCALS,COLOURS,SHARK_VERSION)
+					_func(GLOBALS,COLOURS,SHARK_VERSION)
 				elseif _SITE == "errors" then
 					local n_ERRORS = 0
 					for k,v in pairs(GLOBALS["ERRORS"]) do
 						n_ERRORS = n_ERRORS + 1
 					end
-					_func(LOCALS,COLOURS,n_ERRORS)
+					_func(GLOBALS,COLOURS,n_ERRORS)
 				else
-					_func(LOCALS,COLOURS)
+					_func(GLOBALS,COLOURS)
 				end
 			else
 				n_ERROR_CODE = "000"
