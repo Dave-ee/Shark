@@ -2,31 +2,7 @@
 
 	Shark
 	Initial Release - v1.0
-
-	PLAN for v1:
-		- Pages
-			- History
-				- Reads the history file and prints on screen
-			- Error
-				- Handles all error codes
-					- 000: Shark corrupt
-					- 100: Site not found
-					- 101: Page not found
-					- 102: Hostname not found
-					- 103: Sharkle is empty
-					- 200: Host requires cert. from client
-					- 201: Host denied cert. from client
-			- File System
-				- Better file system
-					- sharkfs/
-						- /config/
-						- /local/
-						- /sites/
-						- /history
-						- /log
-			- HRF
-				- Host Resolution File (replaces DNS)
-
+	
 --]]
 
 local SHARKLE = "local://home/"
