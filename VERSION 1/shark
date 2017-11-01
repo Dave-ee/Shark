@@ -336,6 +336,7 @@ end
 function f_OWN_HOSTNAMES()
 	local handle = fs.open(SHARK_FILES["HRF"].path,"r")
 	local t_HRF = textutils.unserialize(handle.readAll())
+	handle.close()
 	local own = os.getComputerID()
 	local res = {}
 	for k,v in pairs(t_HRF) do
