@@ -131,7 +131,7 @@ local COLOURS = {
 	}
 }
 
-local COMMAND_STORAGE = {
+local COMMANDS_STORAGE = {
 	["color"] = {
 		STACK_TC = { term.getTextColor() },
 		STACK_BC = { term.getBackgroundColor() }
@@ -496,6 +496,7 @@ local function f_TOGGLE_MENU(b)
 		tm_BAR.redraw()
 	end
 	term.redirect(_tm)
+	return true
 end
 
 -- Change Sharkle
@@ -506,9 +507,9 @@ local function f_CHANGE_SHARKLE(s,_err)
 	SHARKLE = s:lower()
 	f_LOG("HISTORY",SHARKLE)
 	if _err then
-		exe_SHARKLE(SHARKLE,_err)
+		return exe_SHARKLE(SHARKLE,_err)
 	else
-		exe_SHARKLE(SHARKLE)
+		return exe_SHARKLE(SHARKLE)
 	end
 end
 
@@ -807,7 +808,7 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			term.setBackgroundColor(COLOURS["PAGE"].bg)
 			term.clear()
 			term.setCursorPos(2,2)
-			print("Uh Oh! There was an error with code: ".._ERRORCODE)
+			print("Uh Oh!")
 			term.setCursorPos(2,4)
 			term.setTextColor(COLOURS["PAGE"].fg)
 			term.setBackgroundColor(COLOURS["PAGE"].bg)
@@ -862,6 +863,13 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 				print("Please contact the host's administrator for more")
 				term.setCursorPos(2,15)
 				print("information.")
+			else
+				print("That's funny, there's no error code..")
+				term.setTextColor(COLOURS["PAGE"].fg2)
+				term.setCursorPos(2,14)
+				print("Did you type 'error' in the Sharkle bar?")
+				term.setCursorPos(2,15)
+				print("That would be why!")
 			end
 			term.redirect(tm_BAR)
 		elseif SHARK_LOCAL[_SITE] then
@@ -888,7 +896,7 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			_f.close()
 			term.redirect(tm_BAR)
 		elseif fs.exists(SHARK_PATH_SITES.._SITE) and fs.isDir(SHARK_PATH_SITES.._SITE) then
-			_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH..".".._EXT
+			_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH
 			if fs.exists(_FILEPATH) then
 				local _f = fs.open(_FILEPATH,"r")
 				local _c = _f.readAll()
@@ -905,7 +913,7 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 		end
 	end
 	if n_ERROR_CODE then
-		f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,n_ERROR_CODE)
+		return f_CHANGE_SHARKLE(SHARK_LOCAL["error"].sharkle,n_ERROR_CODE)
 	end
 end
 
