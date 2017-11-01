@@ -329,6 +329,22 @@ local function f_LOG(_T,_S,_L)
 	return false
 end
 
+-- This function checks the DNS files for entries with the ID of this computer
+-- And returns a table with all hostnames, later used for rednet.host()
+function f_OWN_HOSTNAMES()
+	local handle = fs.open(SHARK_PATH_DNS,"r")
+	local t_DNS = textutils.unserialize(handle.readAll())
+	handle.close()
+	local own = os.getComputerID()
+	local res = {}
+	for k,v in pairs(t_DNS) do
+		if v == own then
+			res[#res + 1] = k
+		end
+	end
+	return res
+end
+
 -- Resolve name from DNS 
 -- Arguments: Name (String)
 -- Returns: Self (True/False), ID (Computer ID)
@@ -340,7 +356,7 @@ local function f_RESOLVE_NAME(s)
 			n_ID = os.getComputerID()
 		else
 			local _f = fs.open(SHARK_PATH_DNS,"r")
-			local t_DNS = textutils.unseralize(_f.readAll())
+			local t_DNS = textutils.unserialize(_f.readAll())
 			if t_DNS[s] and tonumber(t_DNS[s]) then
 				n_ID = tonumber(t_DNS[s])
 				if n_ID == os.getComputerID() then
@@ -356,6 +372,15 @@ local function f_RESOLVE_NAME(s)
 			n_ID = os.getComputerID()
 		else
 			n_ID = tonumber(s)
+		end
+	end
+	if not n_ID then --We haven't found the ID in our local table, resolve it via rednet
+		local id = rednet.lookup("shark", s)
+		if id then
+			b_SELF = false --If we would be hosting this ourself the ID should've been found in the local file
+			n_ID = id
+		else
+			n_ID = false
 		end
 	end
 	return b_SELF,n_ID
@@ -841,7 +866,20 @@ function exe_SHARKLE(_SHARKLE)
 	end
 end
 
-rednet.open("top")
+for _,v in pairs(peripheral.getNames()) do
+	if peripheral.getType(v) == "modem" and peripheral.call(v, "isWireless") then
+		rednet.open(v)
+	end
+end
+--Initialize rednet hosting
+for _,v in pairs(f_OWN_HOSTNAMES()) do
+	local ok, err = pcall(function()
+		rednet.host("shark", v)
+	end)
+	if not ok then
+		f_LOG("ERROR", err)
+	end
+end
 
 f_DRAW_UI()
 f_CHANGE_SHARKLE(SHARKLE)
