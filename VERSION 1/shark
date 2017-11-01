@@ -375,6 +375,15 @@ local function f_RESOLVE_NAME(s)
 			n_ID = tonumber(s)
 		end
 	end
+	if not n_ID then --We haven't found the ID in our local table, resolve it via rednet
+		local id = rednet.lookup("shark", s)
+		if id then
+			b_SELF = false --If we would be hosting this ourself the ID should've been found in the local file
+			n_ID = id
+		else
+			n_ID = false
+		end
+	end
 	return b_SELF,n_ID
 end
 
