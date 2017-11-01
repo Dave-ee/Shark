@@ -331,6 +331,21 @@ local function f_LOG(_T,_S,_L)
 	return false
 end
 
+-- This function checks the HRF files for entries with the ID of this computer
+-- And returns a table with all hostnames, later used for rednet.host()
+function getOwnHostnames()
+	local handle = fs.open(SHARK_FILES["HRF"].path,"r")
+	local t_HRF = textutils.unseralize(_f.readAll())
+	local own = os.getComputerID()
+	local res = {}
+	for k,v in pairs(t_HRF) do
+		if v == own then
+			res[#res + 1] = k
+		end
+	end
+	return res
+end
+
 -- Resolve name from DNS 
 -- Arguments: Name (String)
 -- Returns: Self (True/False), ID (Computer ID)
@@ -900,6 +915,10 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 end
 
 local function f_INIT()
+	--Initialize rednet hosting
+	for _,v in pairs(getOwnHostnames()) do
+		rednet.host("shark", v)
+	end
 	f_DRAW_UI()
 	f_CHANGE_SHARKLE(SHARKLE)
 	while SHARK_RUNNING do
