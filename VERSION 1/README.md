@@ -1,1 +1,1 @@
-This draft doesn't have the actual file system or browser itself. It's just a draft of the parsing and executing program, with an example of a Shark Language Sheet.
+This is the initial release version. Everything appears to be working but there are expected to be some hiccups which can be fixed.
