@@ -908,7 +908,12 @@ local function f_INIT()
 	end
 end
 
-rednet.open(p_MODEM_SIDE)
+for _,v in pairs(peripheral.getNames()) do
+	if peripheral.getType(v) == "modem" and peripheral.call(v,"isWireless") then
+		rednet.open(v)
+	end
+end
+
 local b_SUCCESS,s_ERROR = pcall(f_INIT)
 term.redirect(tm_DEFAULT)
 term.setTextColor(colors.cyan)
