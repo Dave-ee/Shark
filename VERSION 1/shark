@@ -15,8 +15,6 @@ local SHARK_PATH_CONFIG = SHARK_PATH.."config/"
 
 local SHARK_RUNNING = true
 
-local p_MODEM_SIDE = "top"
-
 local SHARK_FILES = {
 	["MD5"] = {
 		path = SHARK_PATH_CONFIG.."md5"
