@@ -911,6 +911,7 @@ end
 for _,v in pairs(peripheral.getNames()) do
 	if peripheral.getType(v) == "modem" and peripheral.call(v,"isWireless") then
 		rednet.open(v)
+		break
 	end
 end
 
