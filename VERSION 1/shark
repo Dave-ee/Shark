@@ -2,7 +2,7 @@
 
 	Shark
 	Initial Release - v1.0
-	
+
 --]]
 
 local SHARKLE = "local://home/"
@@ -14,6 +14,8 @@ local SHARK_PATH_LOCAL = SHARK_PATH.."local/"
 local SHARK_PATH_CONFIG = SHARK_PATH.."config/"
 
 local SHARK_RUNNING = true
+
+local p_MODEM_SIDE = "top"
 
 local SHARK_FILES = {
 	["MD5"] = {
@@ -149,7 +151,7 @@ local COMMANDS = {
 		end
 	},
 	["clearLine"] = {
-		FUNCTION = function()
+		FUNCTION = function(t)
 			local _c = colors[t[1]] or term.getBackgroundColor()
 			term.setBackgroundColor(_c)
 			term.clearLine()
@@ -479,6 +481,10 @@ end
 -- Arguments: Sharkle (String), Error Code (String)
 local function f_CHANGE_SHARKLE(s,_err)
 	f_TOGGLE_MENU(false)
+	term.redirect(tm_PAGE)
+	term.setTextColor(COLOURS["PAGE"].bg)
+	term.clear()
+	term.redirect(tm_BAR)
 	GLOBALS["SHARKLE_LAST"] = SHARKLE
 	SHARKLE = s:lower()
 	f_LOG("HISTORY",SHARKLE)
@@ -707,19 +713,10 @@ function prs_SHARKLE(_SHARKLE,_BIT)
 	else
 		s_SITE = _SHARKLE:sub(n_ID_END+1,n_SITE_END-1)
 	end
-	local s_PATH = ""
-	local s_EXT = ""
-	if #_SHARKLE == n_SITE_END then
-		s_PATH = "index"
-		s_EXT = "sls"
-	else
+	local s_PATH = "index"
+	local s_EXT = "sls"
+	if #_SHARKLE ~= n_SITE_END then
 		s_PATH = _SHARKLE:sub(n_SITE_END+1)
-		local n_EXT_START = _SHARKLE:find("%.",n_SITE_END+1)
-		if not n_EXT_START then
-			s_EXT = "sls"
-		else
-			s_EXT = _SHARKLE:sub(n_EXT_START+1)
-		end
 	end
 	if not _BIT then
 		return s_ID,s_SITE,s_EXT,s_PATH
@@ -873,8 +870,17 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			term.redirect(tm_BAR)
 		elseif fs.exists(SHARK_PATH_SITES.._SITE) and fs.isDir(SHARK_PATH_SITES.._SITE) then
 			_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH
+			_FILEPATH2 = SHARK_PATH_SITES.._SITE.."/pages/".._PATH..".".._EXT
 			if fs.exists(_FILEPATH) then
 				local _f = fs.open(_FILEPATH,"r")
+				local _c = _f.readAll()
+				_f.close()
+				GLOBALS["ERRORS"] = exe_SLS(_c)
+				for k,v in pairs(GLOBALS["ERRORS"]) do
+					f_LOG("ERROR",v.ERROR,v.LINE)
+				end
+			elseif fs.exists(_FILEPATH2) then
+				local _f = fs.open(_FILEPATH2,"r")
 				local _c = _f.readAll()
 				_f.close()
 				GLOBALS["ERRORS"] = exe_SLS(_c)
@@ -893,8 +899,6 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 	end
 end
 
-rednet.open("top")
-
 local function f_INIT()
 	f_DRAW_UI()
 	f_CHANGE_SHARKLE(SHARKLE)
@@ -904,6 +908,7 @@ local function f_INIT()
 	end
 end
 
+rednet.open(p_MODEM_SIDE)
 local b_SUCCESS,s_ERROR = pcall(f_INIT)
 term.redirect(tm_DEFAULT)
 term.setTextColor(colors.cyan)
