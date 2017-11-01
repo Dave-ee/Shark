@@ -335,7 +335,7 @@ end
 -- And returns a table with all hostnames, later used for rednet.host()
 function f_OWN_HOSTNAMES()
 	local handle = fs.open(SHARK_FILES["HRF"].path,"r")
-	local t_HRF = textutils.unseralize(_f.readAll())
+	local t_HRF = textutils.unserialize(handle.readAll())
 	local own = os.getComputerID()
 	local res = {}
 	for k,v in pairs(t_HRF) do
@@ -926,7 +926,7 @@ end
 local function f_INIT()
 	--Initialize rednet hosting
 	for _,v in pairs(f_OWN_HOSTNAMES()) do
-		loacl ok, err = pcall(function()
+		local ok, err = pcall(function()
 			rednet.host("shark", v)
 		end)
 		if not ok then
