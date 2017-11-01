@@ -926,7 +926,13 @@ end
 local function f_INIT()
 	--Initialize rednet hosting
 	for _,v in pairs(f_OWN_HOSTNAMES()) do
-		rednet.host("shark", v)
+		loacl ok, err = pcall(function()
+			rednet.host("shark", v)
+		end)
+		if not ok then
+			local error = err:match(".+:%d+:(.*)")
+			f_LOG("ERROR", error, 1)
+		end
 	end
 	f_DRAW_UI()
 	f_CHANGE_SHARKLE(SHARKLE)
