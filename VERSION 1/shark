@@ -56,6 +56,16 @@ local SHARK_LOCAL = {
 		sharkle = "local://options/",
 		path = SHARK_PATH_LOCAL.."options"
 	},
+	["history"] = {
+		sum = "",
+		sharkle = "local://history/",
+		path = SHARK_PATH_LOCAL.."history"
+	},
+	["themes"] = {
+		sum = "",
+		sharkle = "local://themes/",
+		path = SHARK_PATH_LOCAL.."themes"
+	},
 	["error"] = {
 		sum = "",
 		sharkle = "local://error/",
@@ -845,28 +855,32 @@ function exe_SHARKLE(_SHARKLE,_ERRORCODE)
 			end
 			term.redirect(tm_BAR)
 		elseif SHARK_LOCAL[_SITE] then
-			term.redirect(tm_PAGE)
-			local _f = fs.open(SHARK_LOCAL[_SITE].path,"r")
-			local _c = _f.readAll()
-			local _SUM = MD5.sumhexa(_c)
-			if _SUM == SHARK_LOCAL[_SITE].sum then
-				local _func = load(_c)
-				if _SITE == "about" then
-					_func(GLOBALS,COLOURS,SHARK_VERSION)
-				elseif _SITE == "errors" then
-					local n_ERRORS = 0
-					for k,v in pairs(GLOBALS["ERRORS"]) do
-						n_ERRORS = n_ERRORS + 1
+			if fs.exists(SHARK_LOCAL[_SITE].path) then 
+				term.redirect(tm_PAGE)
+				local _f = fs.open(SHARK_LOCAL[_SITE].path,"r")
+				local _c = _f.readAll()
+				local _SUM = MD5.sumhexa(_c)
+				if _SUM == SHARK_LOCAL[_SITE].sum then
+					local _func = load(_c)
+					if _SITE == "about" then
+						_func(GLOBALS,COLOURS,SHARK_VERSION)
+					elseif _SITE == "errors" then
+						local n_ERRORS = 0
+						for k,v in pairs(GLOBALS["ERRORS"]) do
+							n_ERRORS = n_ERRORS + 1
+						end
+						_func(GLOBALS,COLOURS,n_ERRORS)
+					else
+						_func(GLOBALS,COLOURS)
 					end
-					_func(GLOBALS,COLOURS,n_ERRORS)
 				else
-					_func(GLOBALS,COLOURS)
+					n_ERROR_CODE = "000"
 				end
+				_f.close()
+				term.redirect(tm_BAR)
 			else
-				n_ERROR_CODE = "000"
+				n_ERROR_CODE = "101"
 			end
-			_f.close()
-			term.redirect(tm_BAR)
 		elseif fs.exists(SHARK_PATH_SITES.._SITE) and fs.isDir(SHARK_PATH_SITES.._SITE) then
 			_FILEPATH = SHARK_PATH_SITES.._SITE.."/pages/".._PATH
 			_FILEPATH2 = SHARK_PATH_SITES.._SITE.."/pages/".._PATH..".".._EXT
