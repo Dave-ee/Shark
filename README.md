@@ -15,9 +15,9 @@ I thought I would put this in it's own Github as it's a fairly large project wit
       - Leaf: White and Green
     - Users can create their own themes as well
   - Modes
-    - Full Mode: Accepts and creates page requests
-    - Offline Mode: Ignores page requests, doesn't create page requests
-    - Passive Mode: Ignores page requests, creates page requests
+    - Online Mode: Page requests can be sent/received
+    - Offline Mode: Can't send/receive page requests
+    - Passive Mode: Can't receive page requests but can send them
   - Certificates
     - Sites may need a certificate to access their pages
 
