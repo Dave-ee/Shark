@@ -11,3 +11,7 @@ Fixes made:
 - Make sure you have a wireless modem on your computer
 - Launch 'shark' on your CC computer
 - Voila!
+
+#### Planned for Options page:
+- Themes
+- Startup Sharkle
