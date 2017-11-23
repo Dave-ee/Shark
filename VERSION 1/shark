@@ -93,28 +93,30 @@ local GLOBALS = {
 }
 
 local COLOURS = {
-	["BAR"] = {
-		bg = colors.cyan,
-		fg = colors.gray
+	BAR = {
+		bg = colors.green,
+		fg = colors.black,
+		menu = colors.white
 	},
-	["SHARKLE"] = {
-		bg = colors.lightGray,
+	SHARKLE = {
+		bg = colors.lime,
 		fg = colors.white,
 		clear = colors.red,
-		enter = colors.lime
+		enter = colors.green
 	},
-	["PAGE"] = {
+	PAGE = {
 		bg = colors.white,
 		fg = colors.black,
 		fg2 = colors.gray,
-		header = colors.cyan,
+		header = colors.green,
 		error = colors.red
 	},
-	["MENU"] = {
-		bg = colors.cyan,
+	MENU = {
+		bg = colors.green,
 		fg = colors.white,
-		fg2 = colors.gray,
-		exit = colors.red
+		fg2 = colors.lime,
+		exitbg = colors.red,
+		exitfg = colors.white,
 	}
 }
 
@@ -390,7 +392,7 @@ local function f_DRAW_MENU()
 	local _tm = term.current()
 	term.redirect(tm_BAR)
 	term.setCursorPos(tm_WIDTH-1,2)
-	term.setTextColor(COLOURS["SHARKLE"].fg)
+	term.setTextColor(COLOURS["BAR"].menu)
 	term.setBackgroundColor(COLOURS["BAR"].bg)
 	print(string.char(25))
 	term.redirect(tm_MENU)
@@ -427,8 +429,8 @@ local function f_DRAW_MENU()
 	else
 		print(n_ERRORS)
 	end
-	term.setTextColor(COLOURS["MENU"].fg)
-	term.setBackgroundColor(COLOURS["MENU"].exit)
+	term.setTextColor(COLOURS["MENU"].exitfg)
+	term.setBackgroundColor(COLOURS["MENU"].exitbg)
 	term.setCursorPos(2,15)
 	print("    "..string.char(248).."    ")
 	term.redirect(_tm)
@@ -458,7 +460,7 @@ local function f_DRAW_UI()
 end
 
 -- Toggle the Menu
--- Arguments: MANUAL (True/False)
+-- Arguments: STATE (True/False)
 local function f_TOGGLE_MENU(b)
 	if b ~= nil then
 		GLOBALS["MENU"] = b
@@ -469,14 +471,14 @@ local function f_TOGGLE_MENU(b)
 	if GLOBALS["MENU"] then
 		term.redirect(tm_BAR)
 		term.setCursorPos(tm_WIDTH-1,2)
-		term.setTextColor(COLOURS["SHARKLE"].fg)
+		term.setTextColor(COLOURS["BAR"].menu)
 		term.setBackgroundColor(COLOURS["BAR"].bg)
 		print(string.char(25))
 		f_DRAW_MENU()
 	else
 		term.redirect(tm_BAR)
 		term.setCursorPos(tm_WIDTH-1,2)
-		term.setTextColor(COLOURS["SHARKLE"].fg)
+		term.setTextColor(COLOURS["BAR"].menu)
 		term.setBackgroundColor(COLOURS["BAR"].bg)
 		print(string.char(27))
 		tm_PAGE.redraw()

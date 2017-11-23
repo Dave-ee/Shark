@@ -6,3 +6,15 @@ Error: java.lang.ArrayIndexOutOfBoundsException
 Time: 6:50
 Error: java.lang.ArrayIndexOutOfBoundsException
 --[[ END SHARK BROKE HERE ]]--
+--[[ SHARK BROKE HERE ]]--
+Time: 7:10
+Error: shark:850: attempt to index ? (a nil value)
+--[[ END SHARK BROKE HERE ]]--
+--[[ SHARK BROKE HERE ]]--
+Time: 11:45
+Error: shark:568: attempt to index ? (a nil value)
+--[[ END SHARK BROKE HERE ]]--
+--[[ SHARK BROKE HERE ]]--
+Time: 13:12
+Error: shark:571: attempt to index ? (a nil value)
+--[[ END SHARK BROKE HERE ]]--

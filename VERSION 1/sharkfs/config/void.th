@@ -1,0 +1,27 @@
+{
+	BAR = {
+		bg = colors.black,
+		fg = colors.purple,
+		menu = colors.purple
+	},
+	SHARKLE = {
+		bg = colors.purple,
+		fg = colors.black,
+		clear = colors.red,
+		enter = colors.lime
+	},
+	PAGE = {
+		bg = colors.black,
+		fg = colors.purple,
+		fg2 = colors.white,
+		header = colors.purple,
+		error = colors.red
+	},
+	MENU = {
+		bg = colors.black,
+		fg = colors.purple,
+		fg2 = colors.purple,
+		exitbg = colors.purple,
+		exitfg = colors.black
+	}
+}
